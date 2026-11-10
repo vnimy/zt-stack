@@ -47,10 +47,10 @@ targetSdk 35 在 Android 15+ 上强制 edge-to-edge：窗口铺满整屏（含�
 | 项 | 变化 |
 |---|---|
 | 布局 | `res/layout/activity_fragment.xml` 由裸 `FrameLayout` 改为 `LinearLayout(root)` + `Toolbar(id=toolbar)` + `FrameLayout(id=fragmentContainer, weight=1)` |
-| 代码 | `SingleFragmentActivity` 里 `WindowCompat.setDecorFitsSystemWindows(false)`；`setSupportActionBar(toolbar)`；`setOnApplyWindowInsetsListener` 把 `systemBars().top` 补成 Toolbar 的 paddingTop、`max(navigationBar, ime)` 补成内容底部 padding、左右补成内容左右 padding；状态栏图标颜色按 `uiMode` 深浅切换 |
+| 代码 | `SingleFragmentActivity` 里 `WindowCompat.setDecorFitsSystemWindows(false)`；`setSupportActionBar(toolbar)`；`setOnApplyWindowInsetsListener` 把 `systemBars().top` 补成**根容器的 paddingTop**（根背景与标题栏同色，标题栏自身高度仍是 `?attr/actionBarSize`，不会被压扁）、`max(navigationBar, ime)` 补成内容底部 padding、左右补成内容左右 padding；状态栏图标颜色按 `uiMode` 深浅切换 |
 | 主题 | `AndroidManifest.xml` 的 application theme 改为 `Theme.ZerotierFix.NoActionBar`（不再要系统 ActionBar）；`android:statusBarColor` 由 `?attr/colorPrimaryVariant` 改为透明（状态栏区域由标题栏背景铺满） |
 | 补丁 | `0004-fix-edge-to-edge-insets.patch`（父提交 `33e2b74`，可单独 `git am`） |
-| 产物 | 同名覆盖 `artifacts/ZerotierFix-1.16.2-debug.apk`，30,118,932 B，sha256 `cef1749d056ead9c671efd6d32472eb22e61ef30fad2498e27bd7e8a6cea3cc4` |
+| 产物 | 同名覆盖 `artifacts/ZerotierFix-1.16.2-debug.apk`，30,118,932 B，sha256 `cb67449e3556b7a3e38a7347fc53d336b49e8a19241d0ae9c86fbeac1c75cc96` |
 
 改动前 APK 已备份到 `.build/apk-before-edgefix.apk`（sha256 `30bc5959…`，未跟踪）。
 
@@ -316,7 +316,7 @@ PASS=28 FAIL=0
 | --- | --- |
 | APK（当前交付） | `D:\Projects\zerotier\zt-stack\artifacts\ZerotierFix-1.16.2-debug.apk`（core 1.16.2） |
 | 大小 | 30,118,932 字节（28.72 MiB） |
-| SHA256 | `cef1749d056ead9c671efd6d32472eb22e61ef30fad2498e27bd7e8a6cea3cc4`（阶段3，含 0004；阶段2 为 `30bc5959…`） |
+| SHA256 | `cb67449e3556b7a3e38a7347fc53d336b49e8a19241d0ae9c86fbeac1c75cc96`（阶段3，含 0004；阶段2 为 `30bc5959…`） |
 | APK（阶段1 回退） | `artifacts\ZerotierFix-1.12.2-debug.apk`（core 1.12.2） |
 | 大小 / SHA256 | 22,736,354 字节 / `e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 内含 | `lib/arm64-v8a/libZeroTierOneJNI.so`（24,197,008 B）、`lib/armeabi-v7a/libZeroTierOneJNI.so`（21,503,892 B）、`classes*.dex` ×12 |
