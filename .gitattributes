@@ -13,6 +13,8 @@ Caddyfile  text eol=lf
 *.json     text eol=lf
 *.md       text eol=lf
 *.example  text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
 
 # 补丁必须保持 LF，否则 git am 会失配
 *.patch    text eol=lf

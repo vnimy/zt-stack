@@ -9,4 +9,8 @@ artifacts/*.apk.bak
 # 客户端 APK 暂不入库（交付物仍留在磁盘上：artifacts/ 与 release/dist/client/）
 *.apk
 
+# JVM 测试的编译产物与运行中间文件（run-planet-sync-test.sh 每次生成）
+patches/zerotierfix/test/.out/
+patches/zerotierfix/test/.work/
+
 # 注意：patches/zerotierfix/test/last-run.log 是验证证据，必须入库
