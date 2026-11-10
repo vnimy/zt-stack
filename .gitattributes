@@ -1,6 +1,7 @@
 # 行尾策略：脚本必须在 Linux/WSL 下以 LF 运行
 * text=auto
 
+# 脚本、配置与文档：一律 LF
 *.sh       text eol=lf
 *.command  text eol=lf
 *.py       text eol=lf
@@ -9,6 +10,9 @@ Caddyfile  text eol=lf
 *.yml      text eol=lf
 *.yaml     text eol=lf
 *.ps1      text eol=lf
+*.json     text eol=lf
+*.md       text eol=lf
+*.example  text eol=lf
 
 # 补丁必须保持 LF，否则 git am 会失配
 *.patch    text eol=lf
