@@ -23,6 +23,8 @@ export JAVA_HOME="${JAVA_HOME:-D:/Projects/MM678/build-android/tools/jdk-17.0.20
 ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-D:/Projects/MM678/build-android/android-sdk}"
 NDK_DIR="${NDK_DIR:-$ANDROID_SDK_ROOT/ndk/android-ndk-r28c}"
 CMAKE_DIR="${CMAKE_DIR:-$BUILD_ROOT/.toolchain/cmake-3.22.1}"
+CORE_VERSION="$(cd "$REPO/externals/core" 2>/dev/null && git describe --tags --abbrev=0 --match '[0-9]*' 2>/dev/null || echo unknown)"
+APK_NAME="${APK_NAME:-ZerotierFix-${CORE_VERSION}-debug.apk}"
 # 交给 JVM/AGP 的路径必须是 Windows 形式（本沙箱 bash 里没有 cygpath，手动转换 /d/... -> D:/...）
 winpath() {
   case "$1" in
@@ -57,6 +59,8 @@ cat "$REPO/local.properties"
 
 echo "== 构建环境 =="
 echo "BUILD_ROOT=$BUILD_ROOT"
+echo "CORE_VERSION=$CORE_VERSION"
+echo "APK_NAME=$APK_NAME"
 "$JAVA_HOME/bin/java" -version 2>&1 | head -1
 "$CMAKE_DIR/bin/cmake.exe" --version | head -1
 
@@ -65,7 +69,7 @@ cd "$REPO"
 
 APK="$REPO/app/build/outputs/apk/debug/app-debug.apk"
 mkdir -p "$STACK_ROOT/artifacts"
-OUT="$STACK_ROOT/artifacts/ZerotierFix-stage1-debug.apk"
+OUT="$STACK_ROOT/artifacts/$APK_NAME"
 cp "$APK" "$OUT"
 echo "== 产物 =="
 ls -l "$OUT"

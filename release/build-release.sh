@@ -88,9 +88,10 @@ fi
 [ -f "$SCRIPT_DIR/README-部署.md" ] || die "缺少 release/README-部署.md"
 
 if [ "$WITH_CLIENT" -eq 1 ]; then
-	APK="$STACK_DIR/artifacts/ZerotierFix-stage1-debug.apk"
+	# 取 artifacts/ 下最新的客户端 APK（文件名带 core 版本，如 ZerotierFix-1.16.2-debug.apk）
+	APK="$(ls -t "$STACK_DIR"/artifacts/ZerotierFix-*-debug.apk 2>/dev/null | head -1 || true)"
 	CLIENT_DOC="$SCRIPT_DIR/client/README-客户端.md"
-	[ -f "$APK" ]        || die "缺少 $APK（客户端 APK；先构建，或加 --skip-client 只出服务端）"
+	[ -n "$APK" ] && [ -f "$APK" ] || die "缺少客户端 APK（artifacts/ZerotierFix-*-debug.apk）；先构建，或加 --skip-client 只出服务端"
 	[ -f "$CLIENT_DOC" ] || die "缺少 $CLIENT_DOC"
 	for f in clients/windows/install-planet.ps1 clients/windows/install-planet.cmd \
 	         clients/linux/install-planet.sh clients/macos/install-planet.command; do
@@ -125,7 +126,7 @@ ok "compose 文件与 install.sh 已打包"
 if [ "$WITH_CLIENT" -eq 1 ]; then
 	log "拷贝客户端"
 	mkdir -p "$TMP_DIR/client/windows" "$TMP_DIR/client/linux" "$TMP_DIR/client/macos"
-	install -m 0644 "$APK" "$TMP_DIR/client/ZerotierFix-stage1-debug.apk"
+	install -m 0644 "$APK" "$TMP_DIR/client/$(basename "$APK")"
 	install -m 0644 "$CLIENT_DOC" "$TMP_DIR/client/README-客户端.md"
 	install -m 0644 "$STACK_DIR/clients/windows/install-planet.ps1" "$TMP_DIR/client/windows/install-planet.ps1"
 	install -m 0644 "$STACK_DIR/clients/windows/install-planet.cmd" "$TMP_DIR/client/windows/install-planet.cmd"
