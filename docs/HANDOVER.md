@@ -14,7 +14,7 @@
 |---|---|---|
 | 行星节点镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2` | `sha256:d4f91480ae9e973c9d5f8b349e34eb77d0e6fc7bd74772223f4e0584c2b0d336`，180 MB |
 | 本地同名 tag | `zt-stack/planet-node:1.16.2` | 同一 image id `d4f91480ae9e`（历史兼容名） |
-| Android 客户端 | 当前交付 `zt-stack/artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2）<br>回退 `zt-stack/artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 1.16.2：30,118,932 B，`sha256:30bc5959827e3288d531adf20129138cfbccec41aa6c529d5197e45336613078`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
+| Android 客户端 | 当前交付 `zt-stack/artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + Android 15 edge-to-edge 修复）<br>回退 `zt-stack/artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 1.16.2：30,118,932 B，`sha256:cef1749d056ead9c671efd6d32472eb22e61ef30fad2498e27bd7e8a6cea3cc4`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 离线发布包 | `zt-stack/release/dist/`（13 个文件，7 个顶层条目，64 MB） | tar `planet-node-1.16.2.tar.gz` 44,009,044 B，`sha256:6da744fc6f665943b557229cafe2fcf807ae35603574ad262000581a164664c4` |
 | 镜像源码 | `zt-stack/planet-node/`（Dockerfile + entrypoint + vendored mkworld） | 构建基准 = ZeroTierOne tag `1.16.2` = commit `a5807560` |
 | 文档 | `zt-stack/README.md`（总入口）、`docs/ARCHITECTURE.md`、`docs/OPERATIONS.md`、`docs/NGINX-反代.md`、`release/README-部署.md`、`release/client/README-客户端.md` | — |
@@ -196,7 +196,8 @@ bash zt-stack/release/build-release.sh && (cd zt-stack/release/dist && sha256sum
 
 ## 8. 尚未完成（接手后的路线）
 
-1. ~~**ZerotierFix core 1.12.2 → 1.16.2**（阶段2）~~ **已完成构建**：core 换到 ZeroTierOne 1.16.2（`fc5c3ec22`），JNI 适配见 `patches/zerotierfix/0003-core-1.16.2-jni.patch`；**不需要 Rust**（`ZT_SSO_SUPPORTED=1` 才链 rustybits，Android 路径不定义）。产物 `artifacts/ZerotierFix-1.16.2-debug.apk`。**剩真实设备上的安装/联网验证**（本机 adb 无法启动 daemon）。
+1. ~~**ZerotierFix core 1.12.2 → 1.16.2**（阶段2）~~ **已完成构建**：core 换到 ZeroTierOne 1.16.2（`fc5c3ec22`），JNI 适配见 `patches/zerotierfix/0003-core-1.16.2-jni.patch`；**不需要 Rust**（`ZT_SSO_SUPPORTED=1` 才链 rustybits，Android 路径不定义）。产物 `artifacts/ZerotierFix-1.16.2-debug.apk`，已在真机安装并连上 `Vnimy-Home`。
+   - 阶段3（`patches/zerotierfix/0004-fix-edge-to-edge-insets.patch`）修好了 Android 15 强制 edge-to-edge 造成的「标题栏盖住页面顶部」：布局换成 Toolbar + 容器，`SingleFragmentActivity` 自己结算系统栏 inset，application theme 改为 `NoActionBar`，`statusBarColor` 透明。**仅源码级确认，真机 UI 未走查**（本机 adb 无法启动 daemon）。
 2. **planet 自动更新通道**：Android 已有"每次启动重新下载 + sha256"开关；桌面端可加 systemd timer/计划任务做 sha 比对替换；再给 `e2e` 加"planet 变更后客户端自动跟上"的断言。
 3. 真域名 ACME、空卷 initdb、`--upgrade`、macOS 真机、Android 真机 五项验证。
 4. **基线已建**：`zt-stack` 已 `git init`（`main` 分支，首个提交 + tag `baseline/handover-2026-11-10`）。`.gitignore` 忽略 `.build/`、`compose/.env`、整个 `release/dist/` 与全部 `*.apk`；APK 与发布包仍留在磁盘上，但换机器需另行拷贝或用 `release/build-release.sh` 重新生成。此后改动请先开分支。

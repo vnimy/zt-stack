@@ -7,8 +7,9 @@
   用现代工具链（JDK17 / Gradle 8 / AGP 8 / compileSdk 35）能构建出 APK。core 保持 **1.12.2**。
 - **阶段2**：把 core 从 1.12.2 换成 **1.16.2**（与自建 planet 节点同版本）。Java 层零改动，
   只重写 `externals/core/java/CMakeLists.txt` 并换代 core 源码。
+- **阶段3**：修 Android 15（targetSdk 35）强制 edge-to-edge 导致的「标题栏盖住页面顶部」，见 §0.1。
 
-> 当前交付 APK 是**阶段2**：`artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2）。
+> 当前交付 APK 是**阶段3**：`artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge 修复）。
 > 阶段1 的 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2）保留作回退。
 
 ---
@@ -22,7 +23,7 @@
 | Java SDK | 无改动。1.12.2→1.16.2 官方只改了 `java/jni/com_zerotierone_sdk_Node.cpp`（`ZT_Node_Config`、线程附加 RAII），native 方法签名不变 |
 | Rust | 不需要。`ZT_SSO_SUPPORTED=1` 才会链 `librustybits.a`，Android JNI 路径不定义该宏 |
 | 产物 | 30,118,932 B，双 ABI，`llvm-nm` 可见 255 个 `ZeroTier::ECC::`/`Bond::` 等 1.16.2 独有符号 |
-| 设备验证 | **未做**（本机 adb 无法启动 daemon，见 §8.3） |
+| 设备验证 | 真机安装并连上自建网络（阶段2 APK 实测连接成功）；edge-to-edge 的视觉修复未拍照确认，见 §8.3 |
 
 core 换代的可复现步骤：
 
@@ -38,6 +39,23 @@ rm -rf ../../core/.cxx ../../core/build
 
 ---
 
+## 0.1 阶段3 摘要（Android 15 edge-to-edge）
+
+targetSdk 35 在 Android 15+ 上强制 edge-to-edge：窗口铺满整屏（含状态栏/导航栏区域），
+而 AppCompat 1.6.1 不会自动补 inset，于是页面顶部被标题栏盖住、内容压到状态栏下面。
+
+| 项 | 变化 |
+|---|---|
+| 布局 | `res/layout/activity_fragment.xml` 由裸 `FrameLayout` 改为 `LinearLayout(root)` + `Toolbar(id=toolbar)` + `FrameLayout(id=fragmentContainer, weight=1)` |
+| 代码 | `SingleFragmentActivity` 里 `WindowCompat.setDecorFitsSystemWindows(false)`；`setSupportActionBar(toolbar)`；`setOnApplyWindowInsetsListener` 把 `systemBars().top` 补成 Toolbar 的 paddingTop、`max(navigationBar, ime)` 补成内容底部 padding、左右补成内容左右 padding；状态栏图标颜色按 `uiMode` 深浅切换 |
+| 主题 | `AndroidManifest.xml` 的 application theme 改为 `Theme.ZerotierFix.NoActionBar`（不再要系统 ActionBar）；`android:statusBarColor` 由 `?attr/colorPrimaryVariant` 改为透明（状态栏区域由标题栏背景铺满） |
+| 补丁 | `0004-fix-edge-to-edge-insets.patch`（父提交 `33e2b74`，可单独 `git am`） |
+| 产物 | 同名覆盖 `artifacts/ZerotierFix-1.16.2-debug.apk`，30,118,932 B，sha256 `cef1749d056ead9c671efd6d32472eb22e61ef30fad2498e27bd7e8a6cea3cc4` |
+
+改动前 APK 已备份到 `.build/apk-before-edgefix.apk`（sha256 `30bc5959…`，未跟踪）。
+
+---
+
 ## 1. 目录内容
 
 ```
@@ -46,6 +64,7 @@ patches/zerotierfix/
 ├── 0002-build-JDK17-Gradle-8.7-AGP-8.6.1-compileSdk-targetSd.patch
 │                                       构建现代化补丁（AGP/Gradle/SDK/NDK）
 ├── 0003-core-1.16.2-jni.patch         阶段2：JNI 适配 core 1.16.2（C++17 + 源文件集 + prometheus）
+├── 0004-fix-edge-to-edge-insets.patch 阶段3：Android 15 edge-to-edge（标题栏不再遮挡内容）
 ├── build.sh                            可复现构建脚本（生成 local.properties + 构建 + 收产物）
 ├── README.md                           本文件
 └── test/
@@ -297,7 +316,7 @@ PASS=28 FAIL=0
 | --- | --- |
 | APK（当前交付） | `D:\Projects\zerotier\zt-stack\artifacts\ZerotierFix-1.16.2-debug.apk`（core 1.16.2） |
 | 大小 | 30,118,932 字节（28.72 MiB） |
-| SHA256 | `30bc5959827e3288d531adf20129138cfbccec41aa6c529d5197e45336613078` |
+| SHA256 | `cef1749d056ead9c671efd6d32472eb22e61ef30fad2498e27bd7e8a6cea3cc4`（阶段3，含 0004；阶段2 为 `30bc5959…`） |
 | APK（阶段1 回退） | `artifacts\ZerotierFix-1.12.2-debug.apk`（core 1.12.2） |
 | 大小 / SHA256 | 22,736,354 字节 / `e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 内含 | `lib/arm64-v8a/libZeroTierOneJNI.so`（24,197,008 B）、`lib/armeabi-v7a/libZeroTierOneJNI.so`（21,503,892 B）、`classes*.dex` ×12 |
@@ -308,8 +327,9 @@ PASS=28 FAIL=0
 
 ### 8.3 未在本阶段验证的内容（不要当成已验证）
 
-- **真机/模拟器安装运行（含阶段2）**：本机 `adb` 无法启动 daemon（`cannot open ...\adb.log: Permission denied`），
-  阶段2 的 1.16.2 APK 没有做过「安装 → 连上自建行星 → 互通」的实测；阶段1 同样没做过。
+- **真机/模拟器安装运行（含阶段2）**：阶段2 的 1.16.2 APK 已在真机安装并连上自建网络（`Vnimy-Home`，
+  `192.168.200.180`），阶段1 未做过。**阶段3 的 edge-to-edge 修复只做了源码级确认（布局/资源确实进包），
+  没有真机截图或 UI 走查**；本机 `adb` 仍无法启动 daemon（`cannot open ...\adb.log: Permission denied`）。
 - **真实 planet 服务端联调**：W2 的 planet 服务端与 token 实现完成后才能做（本阶段只规定接口契约）。
 - **core 1.12.2 在设备上加载 1.16.2 mkworld 产物并联网**：解析器与产物层面已实测（见风险 1），
   设备端加载与互通未验证。阶段2 起客户端与 planet 节点同为 1.16.2，这条只影响仍装 1.12.2 APK 的旧设备。
