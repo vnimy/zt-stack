@@ -1,4 +1,4 @@
-From 6f2979adebdc04a13832470214321c16a39dba7c Mon Sep 17 00:00:00 2001
+From d629d0612e55616baa3f9cd7319cfc45cb3d08c2 Mon Sep 17 00:00:00 2001
 From: bathfire <>
 Date: Wed, 11 Nov 2026 00:04:27 +0800
 Subject: [PATCH] feat(service): ??????????????????????????
@@ -7,10 +7,11 @@ Subject: [PATCH] feat(service): ??????????????????????????
  app/src/main/AndroidManifest.xml              | 14 +++---
  .../zerotierfix/service/StartupReceiver.java  | 24 -----------
  .../service/ZeroTierOneService.java           | 43 ++++++++++++++++++-
+ .../zerotierfix/ui/NetworkListActivity.java   | 39 +++++++++++++++++
  .../kaaass/zerotierfix/util/Constants.java    |  2 -
  app/src/main/res/values-zh/strings.xml        |  1 +
  app/src/main/res/values/strings.xml           |  1 +
- 6 files changed, 50 insertions(+), 35 deletions(-)
+ 7 files changed, 89 insertions(+), 35 deletions(-)
  delete mode 100644 app/src/main/java/net/kaaass/zerotierfix/service/StartupReceiver.java
 
 diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
@@ -178,6 +179,61 @@ index d92baf6..04721a9 100644
          Log.i(TAG, "ZeroTier One Connected");
  
          // 旧版本 Android 多播处理
+diff --git a/app/src/main/java/net/kaaass/zerotierfix/ui/NetworkListActivity.java b/app/src/main/java/net/kaaass/zerotierfix/ui/NetworkListActivity.java
+index 6d5dd7a..7d0d100 100644
+--- a/app/src/main/java/net/kaaass/zerotierfix/ui/NetworkListActivity.java
++++ b/app/src/main/java/net/kaaass/zerotierfix/ui/NetworkListActivity.java
+@@ -1,11 +1,50 @@
+ package net.kaaass.zerotierfix.ui;
+ 
++import android.Manifest;
++import android.content.SharedPreferences;
++import android.content.pm.PackageManager;
++import android.os.Build;
++import android.os.Bundle;
++
++import androidx.core.app.ActivityCompat;
++import androidx.core.content.ContextCompat;
+ import androidx.fragment.app.Fragment;
+ 
+ /**
+  * 网络列表 fragment 的容器 activity
+  */
+ public class NetworkListActivity extends SingleFragmentActivity {
++    private static final int REQUEST_POST_NOTIFICATIONS = 1;
++    private static final String PREFS_UI = "zerotierfix_ui";
++    private static final String PREF_ASKED_POST_NOTIFICATIONS = "asked_post_notifications";
++
++    @Override
++    public void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        requestNotificationPermissionOnce();
++    }
++
++    /**
++     * Android 13 起通知属于运行时权限。没有它，前台服务的常驻通知（含「断开连接」按钮）不会显示。
++     * 只问一次，拒绝后不再纠缠（用户可随时在系统设置里打开）。
++     */
++    private void requestNotificationPermissionOnce() {
++        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
++            return;
++        }
++        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
++                == PackageManager.PERMISSION_GRANTED) {
++            return;
++        }
++        SharedPreferences prefs = getSharedPreferences(PREFS_UI, MODE_PRIVATE);
++        if (prefs.getBoolean(PREF_ASKED_POST_NOTIFICATIONS, false)) {
++            return;
++        }
++        prefs.edit().putBoolean(PREF_ASKED_POST_NOTIFICATIONS, true).apply();
++        ActivityCompat.requestPermissions(this,
++                new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_POST_NOTIFICATIONS);
++    }
++
+     @Override
+     public Fragment createFragment() {
+         return new NetworkListFragment();
 diff --git a/app/src/main/java/net/kaaass/zerotierfix/util/Constants.java b/app/src/main/java/net/kaaass/zerotierfix/util/Constants.java
 index 447f324..b54e068 100644
 --- a/app/src/main/java/net/kaaass/zerotierfix/util/Constants.java

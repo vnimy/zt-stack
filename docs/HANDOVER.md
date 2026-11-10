@@ -14,7 +14,7 @@
 |---|---|---|
 | 行星节点镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2` | `sha256:d4f91480ae9e973c9d5f8b349e34eb77d0e6fc7bd74772223f4e0584c2b0d336`，180 MB |
 | 本地同名 tag | `zt-stack/planet-node:1.16.2` | 同一 image id `d4f91480ae9e`（历史兼容名） |
-| Android 客户端 | 当前交付 `zt-stack/artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + Android 15 edge-to-edge 修复 + 前台服务/通知断开）<br>回退 `zt-stack/artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 1.16.2：30,118,932 B，`sha256:a3b8abc637aa42627d192e3fb107b77ea70715affbbf58bdcdd7ace095f56cd2`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
+| Android 客户端 | 当前交付 `zt-stack/artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + Android 15 edge-to-edge 修复 + 前台服务/通知断开）<br>回退 `zt-stack/artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 1.16.2：30,118,932 B，`sha256:7068be7da5c422d54eca3a22ac726b9636cccc8351dd1ba941a8655c47f1f647`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 离线发布包 | `zt-stack/release/dist/`（13 个文件，7 个顶层条目，64 MB） | tar `planet-node-1.16.2.tar.gz` 44,009,044 B，`sha256:6da744fc6f665943b557229cafe2fcf807ae35603574ad262000581a164664c4` |
 | 镜像源码 | `zt-stack/planet-node/`（Dockerfile + entrypoint + vendored mkworld） | 构建基准 = ZeroTierOne tag `1.16.2` = commit `a5807560` |
 | 文档 | `zt-stack/README.md`（总入口）、`docs/ARCHITECTURE.md`、`docs/OPERATIONS.md`、`docs/NGINX-反代.md`、`release/README-部署.md`、`release/client/README-客户端.md` | — |

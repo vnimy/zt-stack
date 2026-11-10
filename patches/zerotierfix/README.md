@@ -63,10 +63,11 @@ targetSdk 35 在 Android 15+ 上强制 edge-to-edge：窗口铺满整屏（含�
 |---|---|
 | 前台服务 | `ZeroTierOneService` 连接成功后调 `startForeground(ZT_NOTIFICATION_TAG, notification)`（API 34+ 用 `ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE`）；`startForeground` 抛异常（如 Android 12+ 后台启动被拒、缺通知权限）时退回 `notificationManager.notify`，行为与旧版一致 |
 | 权限 | manifest 新增 `FOREGROUND_SERVICE`、`FOREGROUND_SERVICE_SPECIAL_USE`；service 声明 `android:foregroundServiceType="specialUse"` + `<property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="vpn" />` |
+| 通知权限 | Android 13+ 通知需运行时授权：`NetworkListActivity.onCreate` 首次启动申请 `POST_NOTIFICATIONS`（`SharedPreferences` 记一次，拒绝后不再弹；用户可在系统设置里补开）。没有该权限时前台服务照常运行，但通知与「断开连接」按钮不可见 |
 | 通知动作 | 通知新增「断开连接」按钮（`ACTION_DISCONNECT` 显式 Intent → `PendingIntent.getService`），`onStartCommand` 收到后走 `stopZeroTier()` + `stopSelf()`，与系统撤销 VPN 权限同一套清理逻辑；`stopZeroTier()` 末尾 `stopForeground(true)` |
 | 开机自启 | 删除 `service/StartupReceiver.java`（原本只打一行日志）、manifest 里的 `<receiver BOOT_COMPLETED>` 与孤立常量 `PREF_GENERAL_START_ZEROTIER_ON_BOOT`。开机自启改用系统「始终开启的 VPN」（设置 → 网络 → VPN → 齿轮 → Always-on VPN），见 `docs/OPERATIONS.md` §6.5 |
 | 补丁 | `0005-feat-foreground-service-disconnect.patch` |
-| 产物 | 30,118,932 B，sha256 `a3b8abc637aa42627d192e3fb107b77ea70715affbbf58bdcdd7ace095f56cd2` |
+| 产物 | 30,118,932 B，sha256 `7068be7da5c422d54eca3a22ac726b9636cccc8351dd1ba941a8655c47f1f647` |
 
 ---
 
@@ -332,7 +333,7 @@ PASS=28 FAIL=0
 | --- | --- |
 | APK（当前交付） | `D:\Projects\zerotier\zt-stack\artifacts\ZerotierFix-1.16.2-debug.apk`（core 1.16.2） |
 | 大小 | 30,118,932 字节（28.72 MiB） |
-| SHA256 | `a3b8abc637aa42627d192e3fb107b77ea70715affbbf58bdcdd7ace095f56cd2`（阶段4，含 0004+0005；阶段3 为 `34876890…`，阶段2 为 `30bc5959…`） |
+| SHA256 | `7068be7da5c422d54eca3a22ac726b9636cccc8351dd1ba941a8655c47f1f647`（阶段4，含 0004+0005；阶段3 为 `34876890…`，阶段2 为 `30bc5959…`） |
 | APK（阶段1 回退） | `artifacts\ZerotierFix-1.12.2-debug.apk`（core 1.12.2） |
 | 大小 / SHA256 | 22,736,354 字节 / `e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 内含 | `lib/arm64-v8a/libZeroTierOneJNI.so`（24,197,008 B）、`lib/armeabi-v7a/libZeroTierOneJNI.so`（21,503,892 B）、`classes*.dex` ×12 |
