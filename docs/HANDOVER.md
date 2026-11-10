@@ -21,6 +21,19 @@
 
 镜像/客户端/发布包三者版本必须一致：镜像 tag 与 ZT 版本绑定（`PLANET_NODE_TAG`），APK 里内嵌 core 仍是 **1.12.2**（见 §8）。
 
+**线上实例（zt.vnimy.com）与仓库默认形态有差异，备份/巡检前先看这张表：**
+
+| 项 | 线上实际值 |
+|---|---|
+| 服务器 / 目录 | `81.69.244.33`（`VM-0-17-ubuntu`），`/root/docker/zerotier/`，compose 项目名 `zt-stack` |
+| 数据卷 | **bind mount** `./planet-data:/var/lib/zerotier-one`；**不是**命名卷 `zt-stack_planet-data`（那是早期实验残留，identity `e3414c140d`，与线上无关） |
+| 端口 | `ZT_PORT=9993`（仓库默认 9994）；面板 3001 由外部 nginx 反代到 443 |
+| planet 下载 | `https://zt.vnimy.com/planet`（nginx 直通 3000，TLS 为 ZeroSSL 正式证书） |
+| 控制器 | identity `e5c9db4519`，唯一网络 `e5c9db4519e04fa5`（`Vnimy-Home`，192.168.200.0/24） |
+| 备份 | 卷就是目录：`tar czf planet-data.$(date +%F).tgz -C /root/docker/zerotier planet-data` |
+
+> 2026-11-10 该实例的卷内 identity 丢失，被 entrypoint 重新初始化成 `f8809c479a`，而网络 id 前缀仍是旧的 `e5c9db4519` → 客户端永远停在 `REQUESTING_CONFIGURATION`。恢复流程见 `docs/OPERATIONS.md` §6.4。
+
 ## 2. 目录结构（谁负责什么）
 
 ```
@@ -159,6 +172,7 @@ docker logs zt-stack-zerotier --tail 50        # 首次启动看 planet 生成�
 | 设计 | 只改 `.env` 开关而 compose 判定无变化 → 重建被静默吞掉 | 重建路径必须 `up -d --no-deps --force-recreate zerotier`（脚本已内置） |
 | 设计 | ZTNet 面板的 Planet / 端口管理功能会与 entrypoint 抢同一卷的 `planet`、`local.conf` | **不要使用**；面板只用网络与成员管理 |
 | 设计 | 换 IP 后 planet 不会自动推送 | 必须人工/SD 卡重新分发；后续可做客户端自动更新（§8） |
+| 事故 | 控制器 identity 被重建，客户端一直 `REQUESTING_CONFIGURATION` | 2026-11-10 线上实例发生并已恢复：卷内 identity 丢失后被 entrypoint 初始化成新身份，而 network id 前缀仍是旧的。判断与恢复步骤见 `docs/OPERATIONS.md` §6.4 |
 | 未验证 | 真域名 ACME 签发 | 仅用 `tls internal` 自签实测过反代分流；生产需域名解析 + 80/443 |
 | 未验证 | 全新空卷首次 `initdb` | 开发机数据卷已被旧口令初始化，无法原地验证；**请在新服务器首次部署时确认一次** |
 | 未验证 | `deploy.sh --upgrade` / `install.sh --upgrade` | 本机 registry 太慢未实跑；代码路径与常规 up 相同 |
