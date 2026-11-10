@@ -321,6 +321,16 @@ docker exec zt-stack-zerotier mkworld verify /var/lib/zerotier-one/planet | head
 - 旧服务器若还在跑且用的是同一个 identity，**必须先停掉**，否则两台同身份互相冲突。
 - 已在册的成员不需要重新 join，授权与固定 IP 原样生效；**新**连上的设备仍要在面板授权。
 
+### 6.5 让 Android 客户端常驻（前台服务 / 开机自启）
+
+客户端连接后现在是**前台服务**：状态栏有一条常驻通知（“已连接 · <网络 id>”），切后台或息屏不会被系统回收；通知右侧的「断开连接」按钮等同于在 app 里断开，走同一套清理流程。
+
+- 通知权限被拒时 `startForeground` 会失败并退回普通通知（行为同旧版本），此时服务仍可能被系统回收 —— 去系统设置里给 Zerotier Fix 打开通知权限即可。
+- **开机自启不由 app 负责**：旧版的 `BOOT_COMPLETED` 接收器是空实现（只打一行日志，manifest 也没有权限），阶段4 已删除。要开机自动连，用系统能力：
+  设置 → 网络和互联网 → VPN → Zerotier Fix 右侧齿轮 → 打开「始终开启的 VPN」（Always-on VPN）；
+  需要更严格时再开「阻止未使用 VPN 的连接」。
+- 国产 ROM（MIUI / EMUI / ColorOS / OriginOS 等）会额外清理后台：把 app 加入「自启动/后台运行」白名单，电池策略设为「不限制」。
+
 ---
 
 ## 7. 排障对照表
