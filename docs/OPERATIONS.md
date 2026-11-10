@@ -55,12 +55,18 @@ docker run --rm -v zt-stack_planet-data:/data:ro -v ~/zt-backup:/backup alpine  
 `zt-stack_planet-data`）。镜像可以用任意带 `tar` 的镜像；实在没有再 `docker run --rm -it` 进
 `planet-node` 镜像手动打包。
 
+> **先确认挂载方式**：`docker inspect zt-stack-zerotier --format '{{json .Mounts}}'`。
+> 若 `Type` 是 `bind`（现场确有用宿主机目录直接挂的部署，例如
+> `/root/docker/zerotier/planet-data`），要备份的是那个宿主机目录，命令改成
+> `tar czf ~/zt-backup/planet-data-$(date +%F-%H%M).tar.gz -C /root/docker/zerotier/planet-data .`。
+> 命名卷与 bind mount 是两套互不相干的数据，名字像不代表是同一份；备份错了等于没备份。
+
 更有用的是把它拆开看：
 
 ```bash
 docker run --rm -v zt-stack_planet-data:/data:ro alpine ls -la /data
 # identity.secret / identity.public / authtoken.secret / planet / local.conf
-# moons.d/*.moon / controller.d/（下 head 为 SQLite，控制器所有网络都在这里）
+# moons.d/*.moon / controller.d/（network/<nwid>.json 与 member/<addr>.json 明文 JSON，所有网络与成员都在这里）
 ```
 
 ### 1.2 备份 PostgreSQL
@@ -242,6 +248,79 @@ docker compose up -d zerotier                  # 让文件服务读到新 token
 ../scripts/stack-status.sh                     # 确认 /planet 仍 200、无凭据仍 401
 ```
 
+### 6.4 找回被重建的控制器身份（客户端一直“正在请求配置”）
+
+**症状**：客户端长期停在 `REQUESTING_CONFIGURATION` / “正在请求配置”，但客户端侧
+`zerotier-cli peers` 里根节点是 `PLANET ... DIRECT`（说明 planet 文件与 UDP 端口都没问题）。
+控制器上 `controller.d/network/` 里有网络定义、有已授权成员，就是没有任何客户端能拿到配置。
+
+**原因**：节点身份被重建过，而 controller 数据是从别的服务器拷来的。
+network id 的前 10 位就是控制器地址；两者不一致时，客户端把配置请求发给一个不存在的节点，
+永远等不到响应。根节点日志里的直接证据：
+
+```
+entrypoint: empty or incomplete data volume, initialising (this creates a NEW node identity)
+```
+
+**确认**：
+
+```bash
+docker exec zt-stack-zerotier zerotier-cli info            # 第 3 列是当前 address
+docker exec zt-stack-zerotier ls /var/lib/zerotier-one/controller.d/network/
+# 网络文件名前 10 位必须等于上面的 address；不相等 → 这个网络不归当前节点管
+```
+
+**修复**（把身份换回网络数据所属的那个；network id、成员授权、固定 IP 都不用动）：
+
+```bash
+cd zt-stack/compose
+# 1) 先备份（bind mount 部署：本节所有 -v zt-stack_planet-data:/data 都换成宿主机目录，见 1.1）
+docker run --rm -v zt-stack_planet-data:/data:ro -v ~/zt-backup:/backup alpine \
+  tar czf /backup/planet-data-before-identity-restore.tar.gz -C /data .
+
+# 2) 停面板与根节点（面板读写同一个卷）
+docker compose stop ztnet zerotier
+
+# 3) 把旧身份放回卷里（secret 与 public 必须成对，权限 600/644）
+docker run --rm -v zt-stack_planet-data:/data -v /path/to/old-identity:/old:ro alpine sh -c '
+  cp /old/identity.secret /old/identity.public /data/ &&
+  chmod 600 /data/identity.secret && chmod 644 /data/identity.public'
+
+# 4) 删掉属于上一个身份的 moon 定义（不删 entrypoint 会拒绝启动，见下）
+docker run --rm -v zt-stack_planet-data:/data alpine sh -c \
+  'rm -f /data/moon.json /data/moons.d/*.moon'
+
+# 5) 用恢复的身份重建 planet
+sed -i 's/^REGENERATE_WORLD=.*/REGENERATE_WORLD=1/' .env
+docker compose up -d --no-deps --force-recreate zerotier
+sed -i 's/^REGENERATE_WORLD=.*/REGENERATE_WORLD=0/' .env
+docker compose up -d --no-deps zerotier      # 让容器里的开关也回到 0
+
+# 6) 起面板并核对
+docker compose start ztnet
+docker exec zt-stack-zerotier zerotier-cli info
+docker exec zt-stack-zerotier mkworld verify /var/lib/zerotier-one/planet | head -6
+```
+
+预期：`info` 的 address 等于 network id 前 10 位；planet 的 `root[0].identity` 与之一致、
+`root[0].endpoint` 是当前 `PUBLIC_IPV4:ZT_PORT`、`signature_valid=true`。
+接着用一个干净客户端验证：join 后应是 `ACCESS_DENIED`（控制器已在应答），授权后变 `OK` 并分到 IP。
+
+**必须注意**
+
+- 换身份前**先验证密钥对**：
+  `docker run --rm -v /path/to/old-identity:/old:ro --entrypoint zerotier-idtool <镜像> getpublic /old/identity.secret`
+  的输出前 10 位，必须同时等于 `identity.public` 与 network id 的前 10 位。
+- `moon.json` 里带着 `roots[0].identity`，换身份后必然不匹配：entrypoint 的
+  `generate_moon keep` 会以 `moon.json belongs to ..., not to the current identity ...` 退出，
+  容器起不来。所以第 4 步不能省。moon id 会随之变成 `000000<address>.moon`；
+  没有客户端手工 orbit 过旧 moon 时无需额外处理。
+- 不要用 `FORCE_REGENERATE=1` 来“修”它：那只会再造一个新身份，所有 network id 一起失效。
+- 客户端必须重新下载 planet（根身份变了，旧 planet 指向的根已经不存在）：
+  手机在 ZerotierFix 里点“保存并同步”或开自动更新，桌面端重跑 `clients/` 脚本。
+- 旧服务器若还在跑且用的是同一个 identity，**必须先停掉**，否则两台同身份互相冲突。
+- 已在册的成员不需要重新 join，授权与固定 IP 原样生效；**新**连上的设备仍要在面板授权。
+
 ---
 
 ## 7. 排障对照表
@@ -255,6 +334,9 @@ docker compose up -d zerotier                  # 让文件服务读到新 token
 | 面板报 401/403 调控制器失败 | authtoken 变了但 ztnet 没重启 | `docker compose restart ztnet` |
 | 客户端装了 planet 还是连不上 | 9994/udp 没放行、planet 里的 IP 不是客户端可达地址 | `scripts/stack-status.sh` 看 world 端点；用 `nc -u -z <IP> 9994` 之外的方法（UDP 探测）或 `e2e-verify.sh` |
 | 客户端 `ACCESS_DENIED` | 成员未授权（私有网络） | ZTNet 面板里授权该成员，或建公开网络 |
+| 客户端一直 `REQUESTING_CONFIGURATION`，但 `peers` 里 PLANET 是 DIRECT | 控制器 identity 与 network id 前缀不一致（卷被重建过 / 数据是从别的服务器拷来的） | 见 6.4：换回原身份后只重建 planet |
+| 换回 identity 后容器起不来，日志 `moon.json belongs to ...` | `moon.json` 还属于上一个身份 | 删 `moon.json` 与 `moons.d/*.moon` 再起（6.4 第 4 步） |
+| 备份出来的 `planet-data` 里 identity 与线上不一致 | 部署用的是 bind mount，备份的却是同名命名卷 | 按 1.1 的说明用 `docker inspect ... .Mounts` 确认实际数据目录 |
 | `/planet` 返回 401 | token 已启用 | 加 `?token=` 或 `Authorization: Bearer` |
 | `/planet` 内容与容器内不一致 | 反向代理缓存/压缩 | 走 Caddy 直连，别加 CDN |
 | 换 IP 后所有客户端失联 | planet 端点变了但客户端还是旧 planet | 重新分发 planet（第 4 节） |
