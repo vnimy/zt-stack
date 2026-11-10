@@ -8,8 +8,9 @@
 - **阶段2**：把 core 从 1.12.2 换成 **1.16.2**（与自建 planet 节点同版本）。Java 层零改动，
   只重写 `externals/core/java/CMakeLists.txt` 并换代 core 源码。
 - **阶段3**：修 Android 15（targetSdk 35）强制 edge-to-edge 导致的「标题栏盖住页面顶部」，见 §0.1。
+- **阶段4**：连接时改为前台服务（切后台不再被系统回收）+ 通知栏「断开连接」按钮；移除从未生效的开机自启接收器，见 §0.2。
 
-> 当前交付 APK 是**阶段3**：`artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge 修复）。
+> 当前交付 APK 是**阶段4**：`artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务）。
 > 阶段1 的 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2）保留作回退。
 
 ---
@@ -50,9 +51,22 @@ targetSdk 35 在 Android 15+ 上强制 edge-to-edge：窗口铺满整屏（含�
 | 代码 | `SingleFragmentActivity` 里 `WindowCompat.setDecorFitsSystemWindows(false)`；`setSupportActionBar(toolbar)`；`setOnApplyWindowInsetsListener` 把 `systemBars().top` 设成 `statusBarScrim` 的高度（状态栏那条与标题栏同为**页面底色**，不再有紫色色块；标题栏自身高度仍是 `?attr/actionBarSize`，不会被压扁）、`max(navigationBar, ime)` 补成内容底部 padding、左右补成内容左右 padding；状态栏图标颜色按 `uiMode` 深浅切换 |
 | 主题 | `AndroidManifest.xml` 的 application theme 改为 `Theme.ZerotierFix.NoActionBar`（不再要系统 ActionBar）；`android:statusBarColor` 改为透明；标题栏与状态栏遮罩都用 `?android:attr/windowBackground`（与内容区同色），标题文字 `?android:attr/textColorPrimary`；`values-night` 只保留 `PopupOverlay`（`ThemeOverlay.AppCompat.Dark`，修夜间黑底黑字） |
 | 补丁 | `0004-fix-edge-to-edge-insets.patch`（父提交 `33e2b74`，可单独 `git am`） |
-| 产物 | 同名覆盖 `artifacts/ZerotierFix-1.16.2-debug.apk`，30,118,932 B，sha256 `348768903d989ee592ab1948c8eeeaf2d61016dbca00f9a418c59a71f05112a4` |
+| 产物 | 同名覆盖 `artifacts/ZerotierFix-1.16.2-debug.apk`，30,118,932 B，sha256 `348768903d989ee592ab1948c8eeeaf2d61016dbca00f9a418c59a71f05112a4`（阶段3 当时的包；后续阶段会覆盖同名文件，当前值见 §0.2） |
 
 改动前 APK 已备份到 `.build/apk-before-edgefix.apk`（sha256 `30bc5959…`，阶段2 原包）。中间版本（紫色标题栏）备份在 `.build/apk-before-barchange.apk`（sha256 `be7df04b…`）。
+
+---
+
+## 0.2 阶段4 摘要（前台服务 + 通知断开）
+
+| 项 | 变化 |
+|---|---|
+| 前台服务 | `ZeroTierOneService` 连接成功后调 `startForeground(ZT_NOTIFICATION_TAG, notification)`（API 34+ 用 `ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE`）；`startForeground` 抛异常（如 Android 12+ 后台启动被拒、缺通知权限）时退回 `notificationManager.notify`，行为与旧版一致 |
+| 权限 | manifest 新增 `FOREGROUND_SERVICE`、`FOREGROUND_SERVICE_SPECIAL_USE`；service 声明 `android:foregroundServiceType="specialUse"` + `<property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="vpn" />` |
+| 通知动作 | 通知新增「断开连接」按钮（`ACTION_DISCONNECT` 显式 Intent → `PendingIntent.getService`），`onStartCommand` 收到后走 `stopZeroTier()` + `stopSelf()`，与系统撤销 VPN 权限同一套清理逻辑；`stopZeroTier()` 末尾 `stopForeground(true)` |
+| 开机自启 | 删除 `service/StartupReceiver.java`（原本只打一行日志）、manifest 里的 `<receiver BOOT_COMPLETED>` 与孤立常量 `PREF_GENERAL_START_ZEROTIER_ON_BOOT`。开机自启改用系统「始终开启的 VPN」（设置 → 网络 → VPN → 齿轮 → Always-on VPN），见 `docs/OPERATIONS.md` §6.5 |
+| 补丁 | `0005-feat-foreground-service-disconnect.patch` |
+| 产物 | 30,118,932 B，sha256 `a3b8abc637aa42627d192e3fb107b77ea70715affbbf58bdcdd7ace095f56cd2` |
 
 ---
 
@@ -65,6 +79,8 @@ patches/zerotierfix/
 │                                       构建现代化补丁（AGP/Gradle/SDK/NDK）
 ├── 0003-core-1.16.2-jni.patch         阶段2：JNI 适配 core 1.16.2（C++17 + 源文件集 + prometheus）
 ├── 0004-fix-edge-to-edge-insets.patch 阶段3：Android 15 edge-to-edge（标题栏不再遮挡内容）
+├── 0005-feat-foreground-service-disconnect.patch
+│                                       阶段4：前台服务 + 通知栏断开按钮，移除空的开机自启
 ├── build.sh                            可复现构建脚本（生成 local.properties + 构建 + 收产物）
 ├── README.md                           本文件
 └── test/
@@ -316,7 +332,7 @@ PASS=28 FAIL=0
 | --- | --- |
 | APK（当前交付） | `D:\Projects\zerotier\zt-stack\artifacts\ZerotierFix-1.16.2-debug.apk`（core 1.16.2） |
 | 大小 | 30,118,932 字节（28.72 MiB） |
-| SHA256 | `348768903d989ee592ab1948c8eeeaf2d61016dbca00f9a418c59a71f05112a4`（阶段3，含 0004；阶段2 为 `30bc5959…`） |
+| SHA256 | `a3b8abc637aa42627d192e3fb107b77ea70715affbbf58bdcdd7ace095f56cd2`（阶段4，含 0004+0005；阶段3 为 `34876890…`，阶段2 为 `30bc5959…`） |
 | APK（阶段1 回退） | `artifacts\ZerotierFix-1.12.2-debug.apk`（core 1.12.2） |
 | 大小 / SHA256 | 22,736,354 字节 / `e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 内含 | `lib/arm64-v8a/libZeroTierOneJNI.so`（24,197,008 B）、`lib/armeabi-v7a/libZeroTierOneJNI.so`（21,503,892 B）、`classes*.dex` ×12 |
