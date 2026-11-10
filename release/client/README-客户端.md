@@ -14,7 +14,7 @@
 
 ## Android（ZerotierFix）
 
-安装包：`client/ZerotierFix-stage1-debug.apk`（debug 包，安装时要允许「未知来源」）。
+安装包：`client/ZerotierFix-1.16.2-debug.apk`（debug 包，安装时要允许「未知来源」）。
 
 1. 装 APK，打开 App。
 2. 右上角菜单 → **设置** → **行星服务器（自动下载）**。

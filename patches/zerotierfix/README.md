@@ -1,14 +1,40 @@
-# ZerotierFix 阶段1：填地址即用（行星服务器）+ 工具链现代化
+# ZerotierFix：填地址即用（行星服务器）+ 工具链现代化
 
-本目录是 ZerotierFix（`kaaass/ZerotierFix` master，内嵌 ZeroTier 1.12.2 core）**阶段1** 的全部产物：
+本目录是 ZerotierFix（`kaaass/ZerotierFix` master）两个阶段的全部产物：
 可复现的补丁、构建脚本、客户端端到端验证脚本，以及构建出的 APK。
 
-阶段1 的目标只有两件事：
+- **阶段1**：App 里直接填「行星服务器地址」，启动时自动下载 planet（免手动导入 planet 文件）；
+  用现代工具链（JDK17 / Gradle 8 / AGP 8 / compileSdk 35）能构建出 APK。core 保持 **1.12.2**。
+- **阶段2**：把 core 从 1.12.2 换成 **1.16.2**（与自建 planet 节点同版本）。Java 层零改动，
+  只重写 `externals/core/java/CMakeLists.txt` 并换代 core 源码。
 
-1. App 里直接填「行星服务器地址」，启动时自动下载 planet（免手动导入 planet 文件）；
-2. 用现代工具链（JDK17 / Gradle 8 / AGP 8 / compileSdk 35）能构建出 APK。
+> 当前交付 APK 是**阶段2**：`artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2）。
+> 阶段1 的 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2）保留作回退。
 
-> core 仍是 **1.12.2**（`externals/core` = `kaaass/ZeroTierOne @ d028a247`），升级到 1.16.2 是阶段2，不在本阶段范围。
+---
+
+## 0. 阶段2 摘要（core 1.16.2）
+
+| 项 | 变化 |
+|---|---|
+| core 源码 | `externals/core` 从 `kaaass/ZeroTierOne @ d028a247`（1.12.2）换成上游 `ZeroTierOne @ 1.16.2`（`fc5c3ec22`） |
+| JNI 适配 | 补丁 `0003-core-1.16.2-jni.patch`：`CMakeLists.txt` 升 C++17、源文件集对齐 `objects.mk`、补 prometheus 头路径 |
+| Java SDK | 无改动。1.12.2→1.16.2 官方只改了 `java/jni/com_zerotierone_sdk_Node.cpp`（`ZT_Node_Config`、线程附加 RAII），native 方法签名不变 |
+| Rust | 不需要。`ZT_SSO_SUPPORTED=1` 才会链 `librustybits.a`，Android JNI 路径不定义该宏 |
+| 产物 | 30,118,932 B，双 ABI，`llvm-nm` 可见 255 个 `ZeroTier::ECC::`/`Bond::` 等 1.16.2 独有符号 |
+| 设备验证 | **未做**（本机 adb 无法启动 daemon，见 §8.3） |
+
+core 换代的可复现步骤：
+
+```bash
+cd ZerotierFix/externals/core
+git remote add local D:/Projects/zerotier/ZeroTierOne   # 或任意 ZeroTierOne 克隆
+git fetch --no-tags local tag 1.16.2
+git checkout -b zt-stack-core-1.16.2 1.16.2
+git am /path/to/zt-stack/patches/zerotierfix/0003-core-1.16.2-jni.patch
+# 切 core 版本后必须清掉旧产物，否则 CMake 缓存会把 1.12.2 的对象文件带过来
+rm -rf ../../core/.cxx ../../core/build
+```
 
 ---
 
@@ -19,6 +45,7 @@ patches/zerotierfix/
 ├── 0001-feat-planet-planet.patch      功能补丁（设置项 + 下载 + 落盘 + 回退）
 ├── 0002-build-JDK17-Gradle-8.7-AGP-8.6.1-compileSdk-targetSd.patch
 │                                       构建现代化补丁（AGP/Gradle/SDK/NDK）
+├── 0003-core-1.16.2-jni.patch         阶段2：JNI 适配 core 1.16.2（C++17 + 源文件集 + prometheus）
 ├── build.sh                            可复现构建脚本（生成 local.properties + 构建 + 收产物）
 ├── README.md                           本文件
 └── test/
@@ -28,15 +55,17 @@ patches/zerotierfix/
     ├── planet-from-mkworld.bin       1.16.2 vendored mkworld 真实产物（276 字节）
     └── last-run.log                    最近一次验证输出（PASS=28 FAIL=0）
 artifacts/
-└── ZerotierFix-stage1-debug.apk        debug APK（arm64-v8a + armeabi-v7a）
+├── ZerotierFix-1.16.2-debug.apk       当前交付：core 1.16.2（arm64-v8a + armeabi-v7a）
+└── ZerotierFix-1.12.2-debug.apk       阶段1 回退版：core 1.12.2
 ```
 
 ---
 
 ## 2. 打补丁
 
-前置条件：`externals/core` 子模块必须是 `d028a24795e4348615783f8f8b95207035595f56`
-（= kaaass/ZeroTierOne 1.12.2 分支上的 core 版本）。
+前置条件：`externals/core` 已换代到 **ZeroTierOne 1.16.2**（`fc5c3ec22`）并应用 `0003-core-1.16.2-jni.patch`
+（步骤见 §0）。若只要阶段1（core 1.12.2），则子模块必须是 `d028a24795e4348615783f8f8b95207035595f56`
+（= kaaass/ZeroTierOne 1.12.2 分支上的 core 版本），且不打 0003。
 
 ```bash
 cd ZerotierFix
@@ -266,20 +295,26 @@ PASS=28 FAIL=0
 
 | 项 | 值 |
 | --- | --- |
-| APK | `D:\Projects\zerotier\zt-stack\artifacts\ZerotierFix-stage1-debug.apk` |
-| 大小 | 22,736,354 字节（21.68 MiB） |
-| SHA256 | `e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91`（见下方说明） |
-| 内含 | `lib/arm64-v8a/libZeroTierOneJNI.so`、`lib/armeabi-v7a/libZeroTierOneJNI.so`、`classes*.dex` ×12 |
-| 构建命令 | `bash build.sh` → `./gradlew assembleDebug`（Gradle 8.7 / AGP 8.6.1 / NDK r28c / CMake 3.22.1） |
-| hash 说明 | APK 内嵌 zip 条目时间戳，**每次重跑 hash 都不同**（同一份源码两次构建：22,799,696 B / 859852d1… 与 22,736,354 B / e0622299…）。可复现性只到「构建成功 + 大小量级一致」，不要用 hash 做等价判断 |
+| APK（当前交付） | `D:\Projects\zerotier\zt-stack\artifacts\ZerotierFix-1.16.2-debug.apk`（core 1.16.2） |
+| 大小 | 30,118,932 字节（28.72 MiB） |
+| SHA256 | `30bc5959827e3288d531adf20129138cfbccec41aa6c529d5197e45336613078` |
+| APK（阶段1 回退） | `artifacts\ZerotierFix-1.12.2-debug.apk`（core 1.12.2） |
+| 大小 / SHA256 | 22,736,354 字节 / `e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
+| 内含 | `lib/arm64-v8a/libZeroTierOneJNI.so`（24,197,008 B）、`lib/armeabi-v7a/libZeroTierOneJNI.so`（21,503,892 B）、`classes*.dex` ×12 |
+| 构建命令 | `bash build.sh` → `./gradlew assembleDebug`（Gradle 8.7 / AGP 8.6.1 / NDK r28c / CMake 3.22.1）；产物名随 core tag 走：`ZerotierFix-<core 版本>-debug.apk` |
+| core 换代证据 | `llvm-nm -C --defined-only lib/arm64-v8a/libZeroTierOneJNI.so` 可见 255 个 `ZeroTier::ECC::`/`ZeroTier::Bond::`/`Capability::` 等 1.16.2 独有符号 |
+| hash 说明 | APK 内嵌 zip 条目时间戳，**每次重跑 hash 都不同**；可复现性只到「构建成功 + 大小量级一致」，不要用 hash 做等价判断 |
 | 代码确实在包内 | `javap` 可见 `PlanetSyncManager.syncBeforeStart`、`PlanetSyncer.TOTAL_BUDGET_MS=8000`；dex 内能 grep 到 `planet_server_url`、`PlanetSyncManager`、`planet.custom.bak` |
 
 ### 8.3 未在本阶段验证的内容（不要当成已验证）
 
-- **真机/模拟器安装运行**：本阶段没有设备，未做「安装 APK → 连上自建行星 → 互通」的实测。
+- **真机/模拟器安装运行（含阶段2）**：本机 `adb` 无法启动 daemon（`cannot open ...\adb.log: Permission denied`），
+  阶段2 的 1.16.2 APK 没有做过「安装 → 连上自建行星 → 互通」的实测；阶段1 同样没做过。
 - **真实 planet 服务端联调**：W2 的 planet 服务端与 token 实现完成后才能做（本阶段只规定接口契约）。
 - **core 1.12.2 在设备上加载 1.16.2 mkworld 产物并联网**：解析器与产物层面已实测（见风险 1），
-  设备端加载与互通未验证。
+  设备端加载与互通未验证。阶段2 起客户端与 planet 节点同为 1.16.2，这条只影响仍装 1.12.2 APK 的旧设备。
+- **1.16.2 core 的 Android 运行时行为**：加密握手（`enableEncryptedHello=0` 仍按 1.12.2 口径关闭）、
+  Metrics/prometheus 后台线程在移动端的开销，均未实测。
 
 ---
 

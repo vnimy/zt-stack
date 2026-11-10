@@ -14,12 +14,12 @@
 |---|---|---|
 | 行星节点镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2` | `sha256:d4f91480ae9e973c9d5f8b349e34eb77d0e6fc7bd74772223f4e0584c2b0d336`，180 MB |
 | 本地同名 tag | `zt-stack/planet-node:1.16.2` | 同一 image id `d4f91480ae9e`（历史兼容名） |
-| Android 客户端 | `zt-stack/artifacts/ZerotierFix-stage1-debug.apk` | 22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
+| Android 客户端 | 当前交付 `zt-stack/artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2）<br>回退 `zt-stack/artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 1.16.2：30,118,932 B，`sha256:30bc5959827e3288d531adf20129138cfbccec41aa6c529d5197e45336613078`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 离线发布包 | `zt-stack/release/dist/`（13 个文件，7 个顶层条目，64 MB） | tar `planet-node-1.16.2.tar.gz` 44,009,044 B，`sha256:6da744fc6f665943b557229cafe2fcf807ae35603574ad262000581a164664c4` |
 | 镜像源码 | `zt-stack/planet-node/`（Dockerfile + entrypoint + vendored mkworld） | 构建基准 = ZeroTierOne tag `1.16.2` = commit `a5807560` |
 | 文档 | `zt-stack/README.md`（总入口）、`docs/ARCHITECTURE.md`、`docs/OPERATIONS.md`、`docs/NGINX-反代.md`、`release/README-部署.md`、`release/client/README-客户端.md` | — |
 
-镜像/客户端/发布包三者版本必须一致：镜像 tag 与 ZT 版本绑定（`PLANET_NODE_TAG`），APK 里内嵌 core 仍是 **1.12.2**（见 §8）。
+镜像/客户端/发布包三者版本必须一致：镜像 tag 与 ZT 版本绑定（`PLANET_NODE_TAG`），APK 内嵌 core 与镜像同为 **1.16.2**（1.12.2 版保留作回退，见 §8.1）。
 
 **线上实例（zt.vnimy.com）与仓库默认形态有差异，备份/巡检前先看这张表：**
 
@@ -68,7 +68,7 @@ zt-stack/
 | 整套栈可跑 | 三服务 healthy；面板 `/auth/login` 200；`compose config` 双 profile 有效 |
 | 端到端可用 | `e2e-verify.sh`：客户端 Bearer 下载 planet → join → `peers` 出现 `PLANET … DIRECT <IP>:9994` → `listnetworks … OK` |
 | 换 IP 不换身份 | `REGENERATE_WORLD=1` 后 identity/authtoken/network id 不变、planet 时间戳变大、签名仍有效；缺 identity 时 exit 1 拒绝 |
-| Android 可构建 | APK 22,736,354 B，双 ABI `libZeroTierOneJNI.so`；JVM 端到端 `PASS=28`；补丁在干净 master 上 `git am` 可应用 |
+| Android 可构建 | 1.16.2 APK 30,118,932 B，双 ABI `libZeroTierOneJNI.so`（24.2 MB / 21.5 MB），含 255 个 1.16.2 独有符号；JVM 端到端 `PASS=28`；补丁在干净 master 上 `git am` 可应用（0001/0002/0003） |
 | 桌面脚本可用 | Linux `PASS=21`、Windows `PASS=25`（mock 服务真实下载/校验/备份/原子替换） |
 | 纯 compose 可部署 | 无脚本、仅 `docker compose up -d`：三服务 healthy、`/planet` 401→200、面板 200、planet 端点 = `PUBLIC_IPV4:ZT_PORT` |
 | 镜像可分发 | `docker push` 成功（digest 同 §1），`docker login` 后 `docker pull` 成功 |
@@ -125,7 +125,7 @@ cd dist && bash install.sh -i <公网IP>      # 有 tar 就 load，没有就 pul
 端口：`9994/tcp+udp`（必须对公网放行，planet 里的端点）、`3000/tcp`（planet 下载）、`3001/tcp`（面板）。走自带 TLS 再加 `80/443`。
 
 ### 5.2 客户端接入
-- **Android**：装 `artifacts/ZerotierFix-stage1-debug.apk` → 设置 →「行星服务器（自动下载）」填**完整路径到 `/planet`**：`http(s)://<IP>:3000/planet`，token 填下一栏。App 只补协议头，不补路径。
+- **Android**：装 `artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2；老设备可用 `ZerotierFix-1.12.2-debug.apk`）→ 设置 →「行星服务器（自动下载）」填**完整路径到 `/planet`**：`http(s)://<IP>:3000/planet`，token 填下一栏。App 只补协议头，不补路径。
 - **Windows/Linux/macOS**：用 `clients/` 下对应脚本，只给**站点根**：`-ServerUrl http://<IP>:3000` / `--server-url http://<IP>:3000`（+ 可选 token）。脚本自己拼 `/planet`（`BASE="${SERVER_URL%/}"; URL="$BASE/planet"`），再备份旧 planet、原子替换、重启服务。
   - 常见错误：给脚本传 `…/planet` 会变成 `/planet/planet` 而 404；给 Android 只传 `http://IP:3000` 会 404。两者要求相反，注意区分。
 - **手工**：`curl -fSL "http://<IP>:3000/planet?token=<TOKEN>" -o planet`，放进 `C:\ProgramData\ZeroTier\One\planet` / `/var/lib/zerotier-one/planet` / `/Library/Application Support/ZeroTier/One/planet`；校验：257~276 B、首字节 `0x01`。
@@ -196,7 +196,7 @@ bash zt-stack/release/build-release.sh && (cd zt-stack/release/dist && sha256sum
 
 ## 8. 尚未完成（接手后的路线）
 
-1. **ZerotierFix core 1.12.2 → 1.16.2**（阶段2）：需要 NDK + Rust 交叉编译（rustybits），JNI 层 `java/CMakeLists.txt` 仍在，但节点源码依赖 Rust 静态库。这是最大的未完成项，风险也最高。
+1. ~~**ZerotierFix core 1.12.2 → 1.16.2**（阶段2）~~ **已完成构建**：core 换到 ZeroTierOne 1.16.2（`fc5c3ec22`），JNI 适配见 `patches/zerotierfix/0003-core-1.16.2-jni.patch`；**不需要 Rust**（`ZT_SSO_SUPPORTED=1` 才链 rustybits，Android 路径不定义）。产物 `artifacts/ZerotierFix-1.16.2-debug.apk`。**剩真实设备上的安装/联网验证**（本机 adb 无法启动 daemon）。
 2. **planet 自动更新通道**：Android 已有"每次启动重新下载 + sha256"开关；桌面端可加 systemd timer/计划任务做 sha 比对替换；再给 `e2e` 加"planet 变更后客户端自动跟上"的断言。
 3. 真域名 ACME、空卷 initdb、`--upgrade`、macOS 真机、Android 真机 五项验证。
 4. **基线已建**：`zt-stack` 已 `git init`（`main` 分支，首个提交 + tag `baseline/handover-2026-11-10`）。`.gitignore` 忽略 `.build/`、`compose/.env`、整个 `release/dist/` 与全部 `*.apk`；APK 与发布包仍留在磁盘上，但换机器需另行拷贝或用 `release/build-release.sh` 重新生成。此后改动请先开分支。
