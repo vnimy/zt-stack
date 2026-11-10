@@ -47,12 +47,12 @@ targetSdk 35 在 Android 15+ 上强制 edge-to-edge：窗口铺满整屏（含�
 | 项 | 变化 |
 |---|---|
 | 布局 | `res/layout/activity_fragment.xml` 由裸 `FrameLayout` 改为 `LinearLayout(root)` + `View(id=statusBarScrim)` + `Toolbar(id=toolbar)` + `FrameLayout(id=fragmentContainer, weight=1)`；**根容器不染色**（否则整屏铺满主色） |
-| 代码 | `SingleFragmentActivity` 里 `WindowCompat.setDecorFitsSystemWindows(false)`；`setSupportActionBar(toolbar)`；`setOnApplyWindowInsetsListener` 把 `systemBars().top` 设成 `statusBarScrim` 的高度（只有状态栏那条是主色，标题栏自身高度仍是 `?attr/actionBarSize`，不会被压扁）、`max(navigationBar, ime)` 补成内容底部 padding、左右补成内容左右 padding；状态栏图标颜色按 `uiMode` 深浅切换 |
-| 主题 | `AndroidManifest.xml` 的 application theme 改为 `Theme.ZerotierFix.NoActionBar`（不再要系统 ActionBar）；`android:statusBarColor` 改为透明；`values-night` 补 `AppBarOverlay`（`ThemeOverlay.AppCompat.ActionBar`，浅紫标题栏配深色图标）与 `PopupOverlay`（`ThemeOverlay.AppCompat.Dark`，修夜间黑底黑字） |
+| 代码 | `SingleFragmentActivity` 里 `WindowCompat.setDecorFitsSystemWindows(false)`；`setSupportActionBar(toolbar)`；`setOnApplyWindowInsetsListener` 把 `systemBars().top` 设成 `statusBarScrim` 的高度（状态栏那条与标题栏同为**页面底色**，不再有紫色色块；标题栏自身高度仍是 `?attr/actionBarSize`，不会被压扁）、`max(navigationBar, ime)` 补成内容底部 padding、左右补成内容左右 padding；状态栏图标颜色按 `uiMode` 深浅切换 |
+| 主题 | `AndroidManifest.xml` 的 application theme 改为 `Theme.ZerotierFix.NoActionBar`（不再要系统 ActionBar）；`android:statusBarColor` 改为透明；标题栏与状态栏遮罩都用 `?android:attr/windowBackground`（与内容区同色），标题文字 `?android:attr/textColorPrimary`；`values-night` 只保留 `PopupOverlay`（`ThemeOverlay.AppCompat.Dark`，修夜间黑底黑字） |
 | 补丁 | `0004-fix-edge-to-edge-insets.patch`（父提交 `33e2b74`，可单独 `git am`） |
-| 产物 | 同名覆盖 `artifacts/ZerotierFix-1.16.2-debug.apk`，30,118,932 B，sha256 `be7df04b41b593ab7c6aeb02fedc9f9e57aaa6f2c70dd6dd447e62df7067c4ef` |
+| 产物 | 同名覆盖 `artifacts/ZerotierFix-1.16.2-debug.apk`，30,118,932 B，sha256 `348768903d989ee592ab1948c8eeeaf2d61016dbca00f9a418c59a71f05112a4` |
 
-改动前 APK 已备份到 `.build/apk-before-edgefix.apk`（sha256 `30bc5959…`，未跟踪）。
+改动前 APK 已备份到 `.build/apk-before-edgefix.apk`（sha256 `30bc5959…`，阶段2 原包）。中间版本（紫色标题栏）备份在 `.build/apk-before-barchange.apk`（sha256 `be7df04b…`）。
 
 ---
 
@@ -316,7 +316,7 @@ PASS=28 FAIL=0
 | --- | --- |
 | APK（当前交付） | `D:\Projects\zerotier\zt-stack\artifacts\ZerotierFix-1.16.2-debug.apk`（core 1.16.2） |
 | 大小 | 30,118,932 字节（28.72 MiB） |
-| SHA256 | `be7df04b41b593ab7c6aeb02fedc9f9e57aaa6f2c70dd6dd447e62df7067c4ef`（阶段3，含 0004；阶段2 为 `30bc5959…`） |
+| SHA256 | `348768903d989ee592ab1948c8eeeaf2d61016dbca00f9a418c59a71f05112a4`（阶段3，含 0004；阶段2 为 `30bc5959…`） |
 | APK（阶段1 回退） | `artifacts\ZerotierFix-1.12.2-debug.apk`（core 1.12.2） |
 | 大小 / SHA256 | 22,736,354 字节 / `e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 内含 | `lib/arm64-v8a/libZeroTierOneJNI.so`（24,197,008 B）、`lib/armeabi-v7a/libZeroTierOneJNI.so`（21,503,892 B）、`classes*.dex` ×12 |

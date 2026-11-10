@@ -1,4 +1,4 @@
-From df985b0dcc7284dc4c4dbbd7965f63bb90e42109 Mon Sep 17 00:00:00 2001
+From 6712313a1047ef8e37b4926c79a5d39f6ef2f4e9 Mon Sep 17 00:00:00 2001
 From: bathfire <bathfire@localhost>
 Date: Tue, 10 Nov 2026 23:31:11 +0800
 Subject: [PATCH] =?UTF-8?q?fix(ui):=20=E9=80=82=E9=85=8D=20Android=2015=20?=
@@ -11,10 +11,10 @@ Content-Transfer-Encoding: 8bit
 ---
  app/src/main/AndroidManifest.xml              |  2 +-
  .../ui/SingleFragmentActivity.java            | 46 +++++++++++++++++++
- app/src/main/res/layout/activity_fragment.xml | 30 +++++++++++-
- app/src/main/res/values-night/themes.xml      | 10 +++-
- app/src/main/res/values/themes.xml            |  4 +-
- 5 files changed, 86 insertions(+), 6 deletions(-)
+ app/src/main/res/layout/activity_fragment.xml | 31 ++++++++++++-
+ app/src/main/res/values-night/themes.xml      |  7 ++-
+ app/src/main/res/values/themes.xml            |  6 +--
+ 5 files changed, 83 insertions(+), 9 deletions(-)
 
 diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
 index 77d48d6..8cc94bb 100644
@@ -30,7 +30,7 @@ index 77d48d6..8cc94bb 100644
          <service
              android:name=".service.ZeroTierOneService"
 diff --git a/app/src/main/java/net/kaaass/zerotierfix/ui/SingleFragmentActivity.java b/app/src/main/java/net/kaaass/zerotierfix/ui/SingleFragmentActivity.java
-index 2685d4b..56ef71e 100644
+index 2685d4b..92558db 100644
 --- a/app/src/main/java/net/kaaass/zerotierfix/ui/SingleFragmentActivity.java
 +++ b/app/src/main/java/net/kaaass/zerotierfix/ui/SingleFragmentActivity.java
 @@ -1,10 +1,19 @@
@@ -79,7 +79,7 @@ index 2685d4b..56ef71e 100644
 +        final View statusBarScrim = findViewById(R.id.statusBarScrim);
 +        setSupportActionBar(toolbar);
 +
-+        // 状态栏背景就是标题栏颜色：深色主题用深色图标，浅色主题用浅色图标。
++        // 状态栏区域与标题栏同为页面底色：深色主题用浅色图标，浅色主题用深色图标。
 +        boolean nightMode = (getResources().getConfiguration().uiMode
 +                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
 +        WindowInsetsControllerCompat controller =
@@ -89,7 +89,7 @@ index 2685d4b..56ef71e 100644
 +        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
 +            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
 +            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
-+            // 只有状态栏那一条用主色填充，标题栏保持 ?attr/actionBarSize 不被压扁，
++            // 状态栏那一条与标题栏同为页面底色，标题栏保持 ?attr/actionBarSize 不被压扁，
 +            // 页面区域不染色（背景交给主题的 windowBackground）。
 +            ViewGroup.LayoutParams lp = statusBarScrim.getLayoutParams();
 +            if (lp.height != bars.top) {
@@ -106,12 +106,13 @@ index 2685d4b..56ef71e 100644
          Bundle extras;
          Intent intent = getIntent();
 diff --git a/app/src/main/res/layout/activity_fragment.xml b/app/src/main/res/layout/activity_fragment.xml
-index 46f157b..fa95908 100644
+index 46f157b..e1947fd 100644
 --- a/app/src/main/res/layout/activity_fragment.xml
 +++ b/app/src/main/res/layout/activity_fragment.xml
-@@ -1,2 +1,30 @@
- <?xml version="1.0" encoding="utf-8"?>
+@@ -1,2 +1,29 @@
+-<?xml version="1.0" encoding="utf-8"?>
 -<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/fragmentContainer" android:layout_width="match_parent" android:layout_height="match_parent"/>
++﻿<?xml version="1.0" encoding="utf-8"?>
 +<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
 +    xmlns:app="http://schemas.android.com/apk/res-auto"
 +    android:id="@+id/root"
@@ -119,21 +120,20 @@ index 46f157b..fa95908 100644
 +    android:layout_height="match_parent"
 +    android:orientation="vertical">
 +
-+    <!-- 仅用于填充状态栏区域，高度由代码设为状态栏 inset；颜色与标题栏一致 -->
++    <!-- 仅用于填充状态栏区域，高度由代码设为状态栏 inset；与标题栏同为页面底色 -->
 +    <View
 +        android:id="@+id/statusBarScrim"
 +        android:layout_width="match_parent"
 +        android:layout_height="0dp"
-+        android:background="?attr/colorPrimary" />
++        android:background="?android:attr/windowBackground" />
 +
 +    <androidx.appcompat.widget.Toolbar
 +        android:id="@+id/toolbar"
 +        android:layout_width="match_parent"
 +        android:layout_height="?attr/actionBarSize"
-+        android:background="?attr/colorPrimary"
++        android:background="?android:attr/windowBackground"
 +        app:popupTheme="@style/Theme.ZerotierFix.PopupOverlay"
-+        app:theme="@style/Theme.ZerotierFix.AppBarOverlay"
-+        app:titleTextColor="?attr/colorOnPrimary" />
++        app:titleTextColor="?android:attr/textColorPrimary" />
 +
 +    <FrameLayout
 +        android:id="@+id/fragmentContainer"
@@ -142,10 +142,10 @@ index 46f157b..fa95908 100644
 +        android:layout_weight="1" />
 +</LinearLayout>
 diff --git a/app/src/main/res/values-night/themes.xml b/app/src/main/res/values-night/themes.xml
-index 61ea88f..8eb5b6c 100644
+index 61ea88f..5761fbc 100644
 --- a/app/src/main/res/values-night/themes.xml
 +++ b/app/src/main/res/values-night/themes.xml
-@@ -9,11 +9,17 @@
+@@ -9,11 +9,14 @@
          <item name="colorSecondary">@color/teal_200</item>
          <item name="colorSecondaryVariant">@color/teal_200</item>
          <item name="colorOnSecondary">@color/black</item>
@@ -159,15 +159,12 @@ index 61ea88f..8eb5b6c 100644
          <item name="tableRowGrey">@color/table_row_grey_night</item>
      </style>
 +
-+    <!-- 夜间：标题栏是浅紫（colorPrimary=purple_200），图标与标题用深色 -->
-+    <style name="Theme.ZerotierFix.AppBarOverlay" parent="ThemeOverlay.AppCompat.ActionBar" />
-+
 +    <!-- 夜间：弹窗背景来自深色主题，文字必须是浅色，否则黑底黑字 -->
 +    <style name="Theme.ZerotierFix.PopupOverlay" parent="ThemeOverlay.AppCompat.Dark" />
  </resources>
 \ No newline at end of file
 diff --git a/app/src/main/res/values/themes.xml b/app/src/main/res/values/themes.xml
-index 6ffb62d..c042cff 100644
+index 6ffb62d..3fe26cd 100644
 --- a/app/src/main/res/values/themes.xml
 +++ b/app/src/main/res/values/themes.xml
 @@ -9,8 +9,8 @@
@@ -181,6 +178,15 @@ index 6ffb62d..c042cff 100644
          <!-- Customize your theme here. -->
          <item name="greyText">@color/grey_text</item>
          <item name="lightGreyText">@color/light_grey_text</item>
+@@ -22,7 +22,5 @@
+         <item name="windowNoTitle">true</item>
+     </style>
+ 
+-    <style name="Theme.ZerotierFix.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
+-
+     <style name="Theme.ZerotierFix.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
+ </resources>
+\ No newline at end of file
 -- 
 2.55.0.windows.5
 
