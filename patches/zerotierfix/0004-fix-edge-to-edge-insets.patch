@@ -1,4 +1,4 @@
-From f611e8bdcf98a354ae1ab7ae84cfa6dc63adc1f5 Mon Sep 17 00:00:00 2001
+From df985b0dcc7284dc4c4dbbd7965f63bb90e42109 Mon Sep 17 00:00:00 2001
 From: bathfire <bathfire@localhost>
 Date: Tue, 10 Nov 2026 23:31:11 +0800
 Subject: [PATCH] =?UTF-8?q?fix(ui):=20=E9=80=82=E9=85=8D=20Android=2015=20?=
@@ -10,11 +10,11 @@ Content-Transfer-Encoding: 8bit
 
 ---
  app/src/main/AndroidManifest.xml              |  2 +-
- .../ui/SingleFragmentActivity.java            | 40 +++++++++++++++++++
- app/src/main/res/layout/activity_fragment.xml | 24 ++++++++++-
- app/src/main/res/values-night/themes.xml      |  4 +-
+ .../ui/SingleFragmentActivity.java            | 46 +++++++++++++++++++
+ app/src/main/res/layout/activity_fragment.xml | 30 +++++++++++-
+ app/src/main/res/values-night/themes.xml      | 10 +++-
  app/src/main/res/values/themes.xml            |  4 +-
- 5 files changed, 68 insertions(+), 6 deletions(-)
+ 5 files changed, 86 insertions(+), 6 deletions(-)
 
 diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
 index 77d48d6..8cc94bb 100644
@@ -30,10 +30,10 @@ index 77d48d6..8cc94bb 100644
          <service
              android:name=".service.ZeroTierOneService"
 diff --git a/app/src/main/java/net/kaaass/zerotierfix/ui/SingleFragmentActivity.java b/app/src/main/java/net/kaaass/zerotierfix/ui/SingleFragmentActivity.java
-index 2685d4b..6e07e62 100644
+index 2685d4b..56ef71e 100644
 --- a/app/src/main/java/net/kaaass/zerotierfix/ui/SingleFragmentActivity.java
 +++ b/app/src/main/java/net/kaaass/zerotierfix/ui/SingleFragmentActivity.java
-@@ -1,10 +1,18 @@
+@@ -1,10 +1,19 @@
  package net.kaaass.zerotierfix.ui;
  
  import android.content.Intent;
@@ -41,6 +41,7 @@ index 2685d4b..6e07e62 100644
  import android.os.Bundle;
  import android.util.Log;
 +import android.view.View;
++import android.view.ViewGroup;
  
  import androidx.appcompat.app.AppCompatActivity;
 +import androidx.appcompat.widget.Toolbar;
@@ -52,7 +53,7 @@ index 2685d4b..6e07e62 100644
  import androidx.fragment.app.Fragment;
  import androidx.fragment.app.FragmentManager;
  
-@@ -21,7 +29,11 @@ public abstract class SingleFragmentActivity extends AppCompatActivity {
+@@ -21,7 +30,11 @@ public abstract class SingleFragmentActivity extends AppCompatActivity {
      @Override
      public void onCreate(Bundle bundle) {
          super.onCreate(bundle);
@@ -64,7 +65,7 @@ index 2685d4b..6e07e62 100644
          FragmentManager supportFragmentManager = getSupportFragmentManager();
          Fragment findFragmentById = supportFragmentManager.findFragmentById(R.id.fragmentContainer);
          if (findFragmentById == null) {
-@@ -33,6 +45,34 @@ public abstract class SingleFragmentActivity extends AppCompatActivity {
+@@ -33,6 +46,39 @@ public abstract class SingleFragmentActivity extends AppCompatActivity {
          setArgs(findFragmentById);
      }
  
@@ -75,6 +76,7 @@ index 2685d4b..6e07e62 100644
 +        final Toolbar toolbar = findViewById(R.id.toolbar);
 +        final View root = findViewById(R.id.root);
 +        final View content = findViewById(R.id.fragmentContainer);
++        final View statusBarScrim = findViewById(R.id.statusBarScrim);
 +        setSupportActionBar(toolbar);
 +
 +        // 状态栏背景就是标题栏颜色：深色主题用深色图标，浅色主题用浅色图标。
@@ -87,9 +89,13 @@ index 2685d4b..6e07e62 100644
 +        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
 +            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
 +            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
-+            // 状态栏高度补到根容器顶部：根背景与标题栏同色，视觉上仍是一整条 app bar，
-+            // 标题栏自身保持 ?attr/actionBarSize 不被压扁。
-+            v.setPadding(0, bars.top, 0, 0);
++            // 只有状态栏那一条用主色填充，标题栏保持 ?attr/actionBarSize 不被压扁，
++            // 页面区域不染色（背景交给主题的 windowBackground）。
++            ViewGroup.LayoutParams lp = statusBarScrim.getLayoutParams();
++            if (lp.height != bars.top) {
++                lp.height = bars.top;
++                statusBarScrim.setLayoutParams(lp);
++            }
 +            // 左右留给横屏的刘海/挖孔，底部留给导航栏与输入法。
 +            content.setPadding(bars.left, 0, bars.right, Math.max(bars.bottom, ime.bottom));
 +            return WindowInsetsCompat.CONSUMED;
@@ -100,10 +106,10 @@ index 2685d4b..6e07e62 100644
          Bundle extras;
          Intent intent = getIntent();
 diff --git a/app/src/main/res/layout/activity_fragment.xml b/app/src/main/res/layout/activity_fragment.xml
-index 46f157b..9aa7791 100644
+index 46f157b..fa95908 100644
 --- a/app/src/main/res/layout/activity_fragment.xml
 +++ b/app/src/main/res/layout/activity_fragment.xml
-@@ -1,2 +1,24 @@
+@@ -1,2 +1,30 @@
  <?xml version="1.0" encoding="utf-8"?>
 -<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/fragmentContainer" android:layout_width="match_parent" android:layout_height="match_parent"/>
 +<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -111,8 +117,14 @@ index 46f157b..9aa7791 100644
 +    android:id="@+id/root"
 +    android:layout_width="match_parent"
 +    android:layout_height="match_parent"
-+    android:background="?attr/colorPrimary"
 +    android:orientation="vertical">
++
++    <!-- 仅用于填充状态栏区域，高度由代码设为状态栏 inset；颜色与标题栏一致 -->
++    <View
++        android:id="@+id/statusBarScrim"
++        android:layout_width="match_parent"
++        android:layout_height="0dp"
++        android:background="?attr/colorPrimary" />
 +
 +    <androidx.appcompat.widget.Toolbar
 +        android:id="@+id/toolbar"
@@ -130,10 +142,10 @@ index 46f157b..9aa7791 100644
 +        android:layout_weight="1" />
 +</LinearLayout>
 diff --git a/app/src/main/res/values-night/themes.xml b/app/src/main/res/values-night/themes.xml
-index 61ea88f..f290b06 100644
+index 61ea88f..8eb5b6c 100644
 --- a/app/src/main/res/values-night/themes.xml
 +++ b/app/src/main/res/values-night/themes.xml
-@@ -9,8 +9,8 @@
+@@ -9,11 +9,17 @@
          <item name="colorSecondary">@color/teal_200</item>
          <item name="colorSecondaryVariant">@color/teal_200</item>
          <item name="colorOnSecondary">@color/black</item>
@@ -144,6 +156,16 @@ index 61ea88f..f290b06 100644
          <!-- Customize your theme here. -->
          <item name="greyText">@color/grey_text_night</item>
          <item name="lightGreyText">@color/light_grey_text_night</item>
+         <item name="tableRowGrey">@color/table_row_grey_night</item>
+     </style>
++
++    <!-- 夜间：标题栏是浅紫（colorPrimary=purple_200），图标与标题用深色 -->
++    <style name="Theme.ZerotierFix.AppBarOverlay" parent="ThemeOverlay.AppCompat.ActionBar" />
++
++    <!-- 夜间：弹窗背景来自深色主题，文字必须是浅色，否则黑底黑字 -->
++    <style name="Theme.ZerotierFix.PopupOverlay" parent="ThemeOverlay.AppCompat.Dark" />
+ </resources>
+\ No newline at end of file
 diff --git a/app/src/main/res/values/themes.xml b/app/src/main/res/values/themes.xml
 index 6ffb62d..c042cff 100644
 --- a/app/src/main/res/values/themes.xml
