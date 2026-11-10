@@ -1,0 +1,12 @@
+# 构建期缓存/临时目录：build.sh 默认全部落在 .build/ 下（见 patches/zerotierfix/README.md）
+.build/
+
+# 构建中间物品
+artifacts/*.idsig
+artifacts/*.aab
+artifacts/*.apk.bak
+
+# 客户端 APK 暂不入库（交付物仍留在磁盘上：artifacts/ 与 release/dist/client/）
+*.apk
+
+# 注意：patches/zerotierfix/test/last-run.log 是验证证据，必须入库

@@ -1,0 +1,7 @@
+# The build context is deliberately tiny: the ZeroTier source arrives as the
+# tarball that build.sh produces.
+README.md
+verify.sh
+mkworld/mkworld
+mkworld/*.o
+*.log

@@ -1,0 +1,163 @@
+# ZeroTier 行星（根）节点 + ZTNet 控制面板 + PostgreSQL 单机编排
+#
+# 一键部署（推荐）：../scripts/deploy.sh -i <服务器公网 IPv4>
+# 手工部署：        cp .env.example .env && ${EDITOR:-vi} .env && docker compose up -d
+# 带 TLS（需要域名解析到本机）：docker compose --profile tls up -d
+#
+# 服务与端口约定见 ../docs/ARCHITECTURE.md，运维流程见 ../docs/OPERATIONS.md。
+name: zt-stack
+
+services:
+  # ------------------------------------------------------------------
+  # 行星（根）节点：ZeroTier 1.16.2 + 内建 controller，同时提供 planet 下载
+  # ------------------------------------------------------------------
+  zerotier:
+    image: ${PLANET_NODE_IMAGE:-ccr.ccs.tencentyun.com/vnimy/zerotier-planet:${PLANET_NODE_TAG:-1.16.2}}
+    container_name: zt-stack-zerotier
+    # ZTNet 默认控制器地址就是 http://zerotier:9993（见 docs/ARCHITECTURE.md），
+    # 主机名必须保持 zerotier，改名要在 .env 里同时改 ZT_ADDR。
+    hostname: zerotier
+    restart: unless-stopped
+    # 根节点只做中继与 controller，不加入任何网络，因此不需要 /dev/net/tun，
+    # 也不需要额外 capability（容器内监听 9993/3000，无需改宿主网络栈）。
+    ports:
+      - "${ZT_PORT:-9994}:9993/tcp"    # 控制 API + controller（公网暴露给 ZTNet 之外的运维 curl）
+      - "${ZT_PORT:-9994}:9993/udp"    # 节点之间的 peer 传输；planet stableEndpoints 通告的就是宿主这个端口
+      - "${FILES_PORT:-3000}:3000/tcp" # planet/moon 下载服务
+    volumes:
+      - planet-data:/var/lib/zerotier-one
+    environment:
+      # 必填：写进 planet world 的根节点公网端点
+      PUBLIC_IPV4: ${PUBLIC_IPV4:?PUBLIC_IPV4 必填：填服务器公网 IPv4，它会被写进 planet 的 stableEndpoints}
+      PUBLIC_IPV6: ${PUBLIC_IPV6:-}
+      # 公网通告端口（容器内始终监听 9993，宿主映射见上面的 ports）
+      ZT_PORT: ${ZT_PORT:-9994}
+      # 容器内固定 3000；宿主端口只改上面的 ports 映射
+      FILES_PORT: "3000"
+      DOWNLOAD_TOKEN: ${DOWNLOAD_TOKEN:-}
+      ENABLE_CONTROLLER: "1"
+      ALLOW_MANAGEMENT_FROM: ${ALLOW_MANAGEMENT_FROM:-172.16.0.0/12}
+      FORCE_REGENERATE: ${FORCE_REGENERATE:-0}
+      # 只重建 planet/moons（换公网 IP 用），identity 与 controller 数据不动；deploy.sh 自动管理
+      REGENERATE_WORLD: ${REGENERATE_WORLD:-0}
+    # 健康检查由镜像自带（python3 打 /healthz），镜像里没有 curl。
+    networks:
+      - ztnet-net
+
+  # ------------------------------------------------------------------
+  # ZTNet 控制面板：通过共享卷读 authtoken.secret，用 X-ZT1-Auth 调 controller
+  # ------------------------------------------------------------------
+  ztnet:
+    image: ${ZTNET_IMAGE:-docker.1panel.live/sinamics/ztnet:latest}
+    container_name: zt-stack-ztnet
+    hostname: ztnet
+    working_dir: /app
+    restart: unless-stopped
+    ports:
+      # 面板端口：默认 3001，因为 3000 留给 planet 下载服务（两个都要发布到宿主）
+      - "${ZTNET_PORT:-3001}:3000/tcp"
+    volumes:
+      # 官方 compose 就把这个卷挂给 ztnet：它要读 authtoken.secret 作为 controller 口令。
+      # 写成读写挂载（不是 :ro）：ZTNet 的端口设置与 planet 管理功能会写 local.conf / planet，
+      # 但这些写入会与 zerotier 服务打架，生产上不要用（见 docs/OPERATIONS.md）。
+      - planet-data:/var/lib/zerotier-one
+    environment:
+      # 必须显式给 0.0.0.0：compose 的 hostname: ztnet 会让 Docker 注入 HOSTNAME=ztnet，
+      # Next.js 会把 HOSTNAME 当作监听地址，于是只绑容器 IP、127.0.0.1 上连不上（健康检查会挂）
+      HOSTNAME: 0.0.0.0
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必填：由 scripts/deploy.sh 生成}
+      POSTGRES_DB: ${POSTGRES_DB:-ztnet}
+      # 镜像入口脚本会自己拼 DATABASE_URL，这里显式给一份，便于排查与外部迁移
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ztnet}?schema=public
+      # 浏览器访问面板用的地址，必须是公网可达 URL（ZTNet 用它生成登录回调）
+      NEXTAUTH_URL: ${NEXTAUTH_URL:?NEXTAUTH_URL 必填：形如 http://<服务器IP>:3000}
+      NEXTAUTH_URL_INTERNAL: http://ztnet:3000
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET 必填：由 scripts/deploy.sh 生成}
+      # 控制器地址与口令的来源，优先级：环境变量 > 面板里保存的值 > 默认值/文件
+      ZT_ADDR: ${ZT_ADDR:-http://zerotier:9993}
+      ZT_SECRET_FILE: /var/lib/zerotier-one/authtoken.secret
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      zerotier:
+        condition: service_healthy
+    healthcheck:
+      # 镜像内装了 curl；/auth/login 是 Next.js 的登录页路由
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:3000/auth/login || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 90s
+    networks:
+      - ztnet-net
+
+  # ------------------------------------------------------------------
+  # PostgreSQL：ZTNet 的数据库，只在内部网络暴露
+  # ------------------------------------------------------------------
+  postgres:
+    image: ${POSTGRES_IMAGE:-docker.1panel.live/library/postgres:15-alpine}
+    container_name: zt-stack-postgres
+    hostname: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必填：由 scripts/deploy.sh 生成}
+      POSTGRES_DB: ${POSTGRES_DB:-ztnet}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"${POSTGRES_USER:-postgres}\" -d \"${POSTGRES_DB:-ztnet}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - ztnet-net
+
+  # ------------------------------------------------------------------
+  # Caddy 反代（可选，profile tls）：同一域名下 / 走 ZTNet，/planet 等走文件服务
+  # ------------------------------------------------------------------
+  caddy:
+    profiles: ["tls"]
+    image: ${CADDY_IMAGE:-docker.1panel.live/library/caddy:2-alpine}
+    container_name: zt-stack-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+      - "443:443/udp"
+    environment:
+      # 用 tls profile 时必须非空（scripts/deploy.sh 会校验；Caddy 拿到空域名会起不来）
+      TLS_DOMAIN: ${TLS_DOMAIN:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      ztnet:
+        condition: service_started
+      zerotier:
+        condition: service_healthy
+    networks:
+      - ztnet-net
+
+volumes:
+  # identity.secret / authtoken.secret / planet / moons.d / controller.d 都在这里，
+  # 备份与迁移就是备份这个卷（见 docs/OPERATIONS.md）。
+  planet-data:
+  postgres-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  ztnet-net:
+    driver: bridge
+    ipam:
+      config:
+        # 必须落在 ALLOW_MANAGEMENT_FROM 覆盖的网段内，否则 ZTNet 调 9993 会被拒。
+        # 默认 172.16.0.0/12 覆盖本子网；若改成别的网段，两个值都要同步改。
+        - subnet: ${STACK_SUBNET:-172.28.0.0/24}

@@ -1,0 +1,23 @@
+# 行尾策略：脚本必须在 Linux/WSL 下以 LF 运行
+* text=auto
+
+*.sh       text eol=lf
+*.command  text eol=lf
+*.py       text eol=lf
+Dockerfile text eol=lf
+Caddyfile  text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+*.ps1      text eol=lf
+
+# 补丁必须保持 LF，否则 git am 会失配
+*.patch    text eol=lf
+
+# Windows 批处理仍用 CRLF
+*.cmd      text eol=crlf
+*.bat      text eol=crlf
+
+# 二进制交付物/测试夹具
+*.apk      binary
+*.tar.gz   binary
+*.bin      binary
