@@ -14,7 +14,7 @@
 |---|---|---|
 | 行星节点镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2` | `sha256:d4f91480ae9e973c9d5f8b349e34eb77d0e6fc7bd74772223f4e0584c2b0d336`，180 MB |
 | 本地同名 tag | `zt-stack/planet-node:1.16.2` | 同一 image id `d4f91480ae9e`（历史兼容名） |
-| Android 客户端 | 当前交付 `zt-stack/artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + Android 15 edge-to-edge 修复 + 前台服务/通知断开 + 路由表/扫码导入 + 网络切换自愈）<br>回退 `zt-stack/artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 1.16.2：30,119,156 B，`sha256:37803830697d365a2d5a2cd31606605ca4490db2b7b3a04af05e0ae80d062740`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
+| Android 客户端 | 当前交付 `zt-stack/artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + Android 15 edge-to-edge 修复 + 前台服务/通知断开 + 路由表/扫码导入 + 网络切换自愈 + 检查更新，versionCode 15 / 1.0.11）<br>回退 `zt-stack/artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 1.16.2：23,900,797 B，`sha256:3a55ad113197d07d9f38cd425803f58ecfc6545a8078f63daf83726ae2309ea0`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 离线发布包 | `zt-stack/release/dist/`（13 个文件，7 个顶层条目，64 MB） | tar `planet-node-1.16.2.tar.gz` 44,009,044 B，`sha256:6da744fc6f665943b557229cafe2fcf807ae35603574ad262000581a164664c4` |
 | 镜像源码 | `zt-stack/planet-node/`（Dockerfile + entrypoint + vendored mkworld） | 构建基准 = ZeroTierOne tag `1.16.2` = commit `a5807560` |
 | 文档 | `zt-stack/README.md`（总入口）、`docs/ARCHITECTURE.md`、`docs/OPERATIONS.md`、`docs/NGINX-反代.md`、`release/README-部署.md`、`release/client/README-客户端.md` | — |
@@ -27,6 +27,8 @@
 |---|---|
 | 服务器 / 目录 | `81.69.244.33`（`VM-0-17-ubuntu`），`/root/docker/zerotier/`，compose 项目名 `zt-stack` |
 | 数据卷 | **bind mount** `./planet-data:/var/lib/zerotier-one`；**不是**命名卷 `zt-stack_planet-data`（那是早期实验残留，identity `e3414c140d`，与线上无关） |
+| 下载服务 | 线上把 `./planet-files.py` 单独 bind mount 到 `/usr/local/bin/planet-files.py:ro`，改脚本不用重编镜像；`version.json` 与 `zerotierfix.apk` 直接放 `planet-data/`（见 OPERATIONS §6.6） |
+| 外部反代 | 容器 `nginx`（镜像 `nginx-with-auth`），配置在宿主机 `/root/docker/nginx/conf.d/zerotier.conf`，示例见 `docs/NGINX-反代.md` |
 | 端口 | `ZT_PORT=9993`（仓库默认 9994）；面板 3001 由外部 nginx 反代到 443 |
 | planet 下载 | `https://zt.vnimy.com/planet`（nginx 直通 3000，TLS 为 ZeroSSL 正式证书） |
 | 控制器 | identity `e5c9db4519`，唯一网络 `e5c9db4519e04fa5`（`Vnimy-Home`，192.168.200.0/24） |
@@ -201,6 +203,7 @@ bash zt-stack/release/build-release.sh && (cd zt-stack/release/dist && sha256sum
    - 阶段4（`patches/zerotierfix/0005-feat-foreground-service-disconnect.patch`）连接时 `startForeground`（API 34+ `specialUse` 类型，失败退回普通通知），通知栏加「断开连接」按钮；Android 13+ 首次启动申请 `POST_NOTIFICATIONS`（只问一次，否则通知不可见）；同时删掉从未生效的 `StartupReceiver` 与 `PREF_GENERAL_START_ZEROTIER_ON_BOOT`，开机自启改用系统「始终开启的 VPN」。
    - 阶段5（`patches/zerotierfix/0006-feat-routes-and-qr-import.patch`）网络详情页新增「Routes」行（`getRoutes()`，前缀长度取自 `getTarget().getPort()`，1.16.2 的 JNI 不填 `flags` 所以默认路由按「前缀 0 + any 地址」判断）；设置页新增「扫描二维码导入」行星服务器（`zxing-android-embedded 4.3.0`，申请 `CAMERA`，支持 `?token=` 拆分，扫完立即同步 planet）。
   - 阶段6（`patches/zerotierfix/0007-feat-network-change-resilience.patch`）`ConnectivityManager` 订阅 `INTERNET + NOT_VPN` 物理网络，切换后重新 `protect()` UDP 套接字、拉起已退出的收包线程；只剩蜂窝且未允许移动网络时断开（与启动策略一致）；`UdpCom` 遇 `SocketException` 不再直接结束线程。
+   - 阶段7（`patches/zerotierfix/0008-feat-in-app-update-check.patch`）设置页「关于 → 检查更新」：取行星服务器地址的 `scheme://authority` 拼 `/version.json`，比对 `versionCode` 后弹窗提示并可跳转下载；服务端 `planet-files.py` 新增 `/version.json`（读数据目录 `version.json`）与 `/app/zerotierfix.apk`（读数据目录 `zerotierfix.apk`），改清单不需要重启容器。versionCode 升到 15 / 1.0.11。
 2. **planet 自动更新通道**：Android 已有"每次启动重新下载 + sha256"开关；桌面端可加 systemd timer/计划任务做 sha 比对替换；再给 `e2e` 加"planet 变更后客户端自动跟上"的断言。
 3. 真域名 ACME、空卷 initdb、`--upgrade`、macOS 真机、Android 真机 五项验证。
 4. **基线已建**：`zt-stack` 已 `git init`（`main` 分支，首个提交 + tag `baseline/handover-2026-11-10`）。`.gitignore` 忽略 `.build/`、`compose/.env`、整个 `release/dist/` 与全部 `*.apk`；APK 与发布包仍留在磁盘上，但换机器需另行拷贝或用 `release/build-release.sh` 重新生成。此后改动请先开分支。

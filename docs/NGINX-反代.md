@@ -4,7 +4,7 @@
 
 | 宿主端口（默认） | 协议 | 用途 | 能不能经 Nginx 反代 |
 |---|---|---|---|
-| `FILES_PORT=3000` | HTTP | `/planet`、`/moons`、`/moon/<name>`、`/healthz`、`/` 下载页 | **能** |
+| `FILES_PORT=3000` | HTTP | `/planet`、`/moons`、`/moon/<name>`、`/healthz`、`/version.json`、`/app/zerotierfix.apk`、`/` 下载页 | **能** |
 | `ZTNET_PORT=3001` | HTTP | ZTNet 面板（Next.js） | **能** |
 | `ZT_PORT=9994` | **TCP + UDP** | ZeroTier 的 peer 传输与控制 API | **不能**（不是 HTTP；UDP 反代无意义，改域名也没用） |
 
@@ -69,6 +69,9 @@ server {
     location = /planet  { proxy_pass http://zt_files; }
     location = /moons   { proxy_pass http://zt_files; }
     location ^~ /moon/  { proxy_pass http://zt_files; }
+    # 客户端检查更新：/version.json 清单 + /app/zerotierfix.apk 安装包
+    location = /version.json { proxy_pass http://zt_files; }
+    location ^~ /app/        { proxy_pass http://zt_files; }
 
     # ---- 其余全部交给 ZTNet 面板 ----
     location / {

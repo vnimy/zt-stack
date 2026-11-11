@@ -331,6 +331,36 @@ docker exec zt-stack-zerotier mkworld verify /var/lib/zerotier-one/planet | head
   需要更严格时再开「阻止未使用 VPN 的连接」。
 - 国产 ROM（MIUI / EMUI / ColorOS / OriginOS 等）会额外清理后台：把 app 加入「自启动/后台运行」白名单，电池策略设为「不限制」。
 
+### 6.6 发布 Android 新版本（客户端检查更新）
+
+客户端「设置 → 关于 → 检查更新」会请求**行星服务器同域的** `/version.json`，比较 `versionCode` 后提示下载。整条链路只有两个文件，都放在数据目录里，改完立即生效（服务每次请求重读，不用重启容器）：
+
+```bash
+cd /root/docker/zerotier
+
+# 1) 放安装包（名字必须是 zerotierfix.apk）
+cp /path/to/ZerotierFix-1.16.2-debug.apk planet-data/zerotierfix.apk
+sha256sum planet-data/zerotierfix.apk     # 记下来，写进清单
+
+# 2) 写清单（versionCode 必须大于用户已装版本才会提示）
+cat > planet-data/version.json <<'EOF'
+{"versionCode": 16, "versionName": "1.0.12",
+ "url": "https://zt.vnimy.com/app/zerotierfix.apk",
+ "notes": "这次改了什么，客户端弹窗里会原样显示"}
+EOF
+
+# 3) 自检
+curl -s https://zt.vnimy.com/version.json
+curl -sI https://zt.vnimy.com/app/zerotierfix.apk | head -1
+```
+
+要点：
+
+- `versionCode` 是唯一判据，必须**大于**用户当前装的版本；`versionName` 只用于显示。发版前先改 app 里 `app/build.gradle` 的 `versionCode`/`versionName` 再构建。
+- `url` 写公网地址；客户端只负责用系统浏览器打开它，不下载也不静默安装。
+- 反代（nginx）需要把 `/version.json` 与 `/app/` 两条转给 3000 端口；仓库里的 `docs/NGINX-反代.md` 已包含。漏配时表现为客户端提示「检查更新失败」。
+- 想强制所有客户端都更新时，不要改 `versionCode` 玩花招（App 会一直提示），直接发通知/公告即可。
+
 ---
 
 ## 7. 排障对照表

@@ -6,6 +6,9 @@ Serves, out of /var/lib/zerotier-one:
   GET /planet         the planet (world) file, X-File-SHA256 carries its digest
   GET /moons          JSON list of moon file names
   GET /moon/<name>    one moon file
+  GET /version.json   latest client build info, read from $ZT_HOME/version.json
+  GET /app/zerotierfix.apk
+                      latest Android build, read from $ZT_HOME/zerotierfix.apk
   GET /               tiny HTML index page
 
 Auth: when DOWNLOAD_TOKEN is non-empty, every endpoint except /healthz requires
@@ -25,6 +28,8 @@ from urllib.parse import unquote, urlparse
 ZT_HOME = os.environ.get("ZT_HOME", "/var/lib/zerotier-one")
 PLANET_PATH = os.path.join(ZT_HOME, "planet")
 MOONS_DIR = os.path.join(ZT_HOME, "moons.d")
+VERSION_PATH = os.path.join(ZT_HOME, "version.json")
+APP_APK_PATH = os.path.join(ZT_HOME, "zerotierfix.apk")
 TOKEN = os.environ.get("DOWNLOAD_TOKEN", "")
 PORT = int(os.environ.get("FILES_PORT", "3000"))
 
@@ -39,6 +44,7 @@ code{background:#f2f2f2;padding:.1rem .3rem;border-radius:3px}</style></head>
 <ul>
 <li><a href="/planet@@SUFFIX@@">planet</a> (world file, sha256 <code>@@DIGEST@@</code>)</li>
 <li><a href="/moons@@SUFFIX@@">moons</a> (JSON list)</li>
+<li><a href="/app/zerotierfix.apk@@SUFFIX@@">Android client</a> (ZerotierFix APK)</li>
 </ul>
 <h2>Moons</h2>
 <ul>@@ROWS@@</ul>
@@ -124,6 +130,29 @@ class Handler(BaseHTTPRequestHandler):
             },
         )
 
+    def _serve_version(self):
+        """Serve $ZT_HOME/version.json, the client update manifest.
+
+        The file is read on every request so bumping it needs no restart:
+          {"versionCode": 15, "versionName": "1.0.11", "url": "https://...", "notes": "..."}
+        """
+        try:
+            with open(VERSION_PATH, "rb") as fp:
+                body = fp.read()
+        except OSError:
+            self._not_found("version.json (not installed)")
+            return
+        try:
+            data = json.loads(body.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError) as exc:
+            log("invalid %s: %s" % (VERSION_PATH, exc))
+            self._send(500, b"500 version.json is not valid JSON\n", "text/plain; charset=utf-8")
+            return
+        if not isinstance(data, dict) or not isinstance(data.get("versionCode"), int):
+            self._send(500, b"500 version.json needs an integer versionCode\n", "text/plain; charset=utf-8")
+            return
+        self._send(200, json.dumps(data, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
+
     def _index_page(self, query):
         token = (query.get("token") or [""])[0]
         suffix = ("?token=" + token) if token else ""
@@ -176,6 +205,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/moons":
                 body = json.dumps({"moons": list_moons()}).encode()
                 self._send(200, body, "application/json")
+            elif path == "/version.json":
+                self._serve_version()
+            elif path == "/app/zerotierfix.apk":
+                self._serve_file(APP_APK_PATH, "zerotierfix.apk")
             elif path.startswith("/moon/"):
                 name = path[len("/moon/"):]
                 if not MOON_NAME_RE.match(name):

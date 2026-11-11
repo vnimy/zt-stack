@@ -14,3 +14,7 @@ patches/zerotierfix/test/.out/
 patches/zerotierfix/test/.work/
 
 # 注意：patches/zerotierfix/test/last-run.log 是验证证据，必须入库
+
+# Python 缓存（planet-files.py 编译产物）
+__pycache__/
+*.pyc

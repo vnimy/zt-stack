@@ -11,8 +11,9 @@
 - **阶段4**：连接时改为前台服务（切后台不再被系统回收）+ 通知栏「断开连接」按钮；移除从未生效的开机自启接收器，见 §0.2。
 - **阶段5**：网络详情展示路由表；设置页支持**扫码导入**行星服务器地址（含 token），见 §0.3。
 - **阶段6**：切换 Wi-Fi / 蜂窝网络后自动重新保护套接字、恢复收包线程，并即时执行「是否允许移动网络」策略，见 §0.4。
+- **阶段7**：设置页「检查更新」——服务端新增 `/version.json` 与 `/app/zerotierfix.apk`，客户端比对 `versionCode` 后提示下载，见 §0.5。
 
-> 当前交付 APK 是**阶段6**：`artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务 + 路由表/扫码 + 网络切换自愈）。
+> 当前交付 APK 是**阶段7**：`artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务 + 路由表/扫码 + 网络切换自愈 + 检查更新，versionCode 15 / 1.0.11）。
 > 阶段1 的 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2）保留作回退。
 
 ---
@@ -106,6 +107,24 @@ targetSdk 35 在 Android 15+ 上强制 edge-to-edge：窗口铺满整屏（含�
 
 ---
 
+## 0.5 阶段7 摘要（应用内检查更新）
+
+没有应用商店，所以自己搭一条最小更新通道：服务端出一个 JSON 清单，客户端比对 `versionCode`，有新版就弹窗引导下载。
+
+| 项 | 变化 |
+|---|---|
+| 服务端清单 | `planet-node/planet-files.py` 新增 `GET /version.json`，从数据目录的 `version.json` 读取（每次请求重读，改文件不用重启容器）；字段 `versionCode`（必填、必须是整数）、`versionName`、`url`、`notes`。文件不存在 → 404，JSON 非法或字段类型不对 → 500 |
+| 服务端安装包 | 新增 `GET /app/zerotierfix.apk`，读取数据目录的 `zerotierfix.apk`（复用 `_serve_file`，带 `X-File-SHA256`）；下载首页加一条「Android client」链接 |
+| 客户端入口 | 设置页末尾新增「关于」分类与「检查更新」项 |
+| 检查逻辑 | 取行星服务器地址的 `scheme://authority` 拼 `/version.json`（`https://zt.vnimy.com/planet` → `https://zt.vnimy.com/version.json`），连接/读取超时各 6s，只读前 64KB；`versionCode` 不大于当前 → 提示已是最新，否则弹窗显示 `versionName` 与 `notes`，「去下载」用 `ACTION_VIEW` 打开 `url` |
+| 版本号 | `versionCode 15` / `versionName 1.0.11` |
+| 补丁 | `0008-feat-in-app-update-check.patch`（父提交 `8526afc`，可单独 `git am`） |
+| 产物 | 23,900,797 B，sha256 `3a55ad113197d07d9f38cd425803f58ecfc6545a8078f63daf83726ae2309ea0` |
+
+**体积为什么反而变小了**：阶段2~6 的 APK 在 `META-INF/MANIFEST.MF` 之后都带着一段 **6,490,152 字节的未被索引空洞**（历史构建残留的垃圾数据，zip 目录里的条目数 1044 并没有包含它）。阶段7 的构建没有这段空洞，条目数 1047，两个 `.so` 与所有 dex 逐字节不减，所以只是去掉了垃圾。`apksigner verify` 仍是 v1+v2 通过，证书与旧包相同，可覆盖安装。
+
+---
+
 ## 1. 目录内容
 
 ```
@@ -119,6 +138,7 @@ patches/zerotierfix/
 │                                       阶段4：前台服务 + 通知栏断开按钮，移除空的开机自启
 ├── 0006-feat-routes-and-qr-import.patch 阶段5：网络详情路由表 + 扫码导入行星服务器
 ├── 0007-feat-network-change-resilience.patch 阶段6：网络切换自愈（重新保护套接字 + 恢复收包线程）
+├── 0008-feat-in-app-update-check.patch 阶段7：设置页检查更新（服务端 /version.json + /app/ APK）
 ├── build.sh                            可复现构建脚本（生成 local.properties + 构建 + 收产物）
 ├── README.md                           本文件
 └── test/
@@ -369,8 +389,8 @@ PASS=28 FAIL=0
 | 项 | 值 |
 | --- | --- |
 | APK（当前交付） | `D:\Projects\zerotier\zt-stack\artifacts\ZerotierFix-1.16.2-debug.apk`（core 1.16.2） |
-| 大小 | 30,119,156 字节（28.72 MiB） |
-| SHA256 | `37803830697d365a2d5a2cd31606605ca4490db2b7b3a04af05e0ae80d062740`（阶段6，含 0003~0007；阶段5 为 `e02afc18…`，阶段4 为 `7068be7d…`，阶段3 为 `34876890…`，阶段2 为 `30bc5959…`） |
+| 大小 | 23,900,797 字节（22.79 MiB） |
+| SHA256 | `3a55ad113197d07d9f38cd425803f58ecfc6545a8078f63daf83726ae2309ea0`（阶段7，含 0003~0008，versionCode 15 / 1.0.11；阶段6 为 `37803830…`，阶段5 为 `e02afc18…`，阶段4 为 `7068be7d…`，阶段3 为 `34876890…`，阶段2 为 `30bc5959…`） |
 | APK（阶段1 回退） | `artifacts\ZerotierFix-1.12.2-debug.apk`（core 1.12.2） |
 | 大小 / SHA256 | 22,736,354 字节 / `e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 内含 | `lib/arm64-v8a/libZeroTierOneJNI.so`（24,197,008 B）、`lib/armeabi-v7a/libZeroTierOneJNI.so`（21,503,892 B）、`classes*.dex` ×12 |
@@ -389,6 +409,9 @@ PASS=28 FAIL=0
   设备端加载与互通未验证。阶段2 起客户端与 planet 节点同为 1.16.2，这条只影响仍装 1.12.2 APK 的旧设备。
 - **1.16.2 core 的 Android 运行时行为**：加密握手（`enableEncryptedHello=0` 仍按 1.12.2 口径关闭）、
   Metrics/prometheus 后台线程在移动端的开销，均未实测。
+- **检查更新的真机点击**：服务端 `/version.json` 与 `/app/zerotierfix.apk` 已在本机冒烟并线上 `curl` 通过
+  （200、中文 notes 正常、APK 字节一致），客户端 `checkForUpdates()` 只做了编译与代码走查，
+  没有在设备上点过「检查更新」；弹窗、跳转下载、以及「已是最新」分支都待真机确认。
 
 ---
 

@@ -11,7 +11,7 @@ Image: `ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2`.
          │   • listens 9993/tcp  → management API + /controller/* (embedded)     │
          │   • /var/lib/zerotier-one = identity, authtoken, planet, moons.d,     │
          │                             controller.d                              │
-         │ planet-files.py : 3000/tcp → /planet /moons /moon/<f> /healthz /      │
+         │ planet-files.py : 3000/tcp → /planet /moons /moon/<f> /healthz /     │
          └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -46,7 +46,7 @@ cleartext); the token lives in `/var/lib/zerotier-one/authtoken.secret`.
 | `Dockerfile` | three stages: ZeroTier 1.16.2 build, mkworld build, runtime |
 | `build.sh` | exports `ZeroTierOne`@`1.16.2` with `git archive`, then `docker build` |
 | `entrypoint.sh` | idempotent first-start state generation, then foreground `zerotier-one` |
-| `planet-files.py` | download service (`/planet`, `/moons`, `/moon/<f>`, `/healthz`, `/`) |
+| `planet-files.py` | download service (`/planet`, `/moons`, `/moon/<f>`, `/healthz`, `/version.json`, `/app/zerotierfix.apk`, `/`) |
 | `verify.sh` | single-container acceptance run (all six checks, PASS/FAIL lines) |
 | `mkworld/` | vendored planet generator, see `mkworld/README.md` |
 
