@@ -19,8 +19,9 @@
 - **补丁 0011**：品牌与包名迁移——显示名统一为 ZeroTier，`applicationId` / 包名改为 `com.vnimy.zerotier`，版本 2.0.0 / versionCode 18；旧包名 `net.kaaass.zerotierfix` 不再升级，需要卸载后重新安装。
 - **补丁 0012**：加入网络页面支持**扫描二维码**——识别二维码中的 16 位网络 ID（兼容纯 ID、带分隔符、`https://my.zerotier.com/network/<id>`、`zerotier://<id>` 与 JSON），扫描后填入输入框；版本 2.0.1 / versionCode 19。
 - **补丁 0013**：主题色对齐官方 ZeroTier——主色改为 `#fac073`，顶部栏、状态栏遮罩、开关与页脚配色统一；版本 2.0.2 / versionCode 20。
+- **2.0.3**：快捷设置磁贴点击后立即刷新状态——连接/断开时面板不关闭也会即时更新，并保留乐观状态反馈；versionCode 21。
 
-> 当前交付 APK 是**补丁 0013（2.0.2）**：`artifacts/ZeroTier-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务 + 路由表/扫码 + 网络切换自愈 + 检查更新 + 快捷设置磁贴（长按打开 App）+ 包名迁移 + 扫码添加网络 + 官方橙色主题，versionCode 20 / 2.0.2，包名 `com.vnimy.zerotier`）。
+> 当前交付 APK 是**2.0.3**：`artifacts/ZeroTier-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务 + 路由表/扫码 + 网络切换自愈 + 检查更新 + 快捷设置磁贴（长按打开 App，点击即时刷新）+ 包名迁移 + 扫码添加网络 + 官方橙色主题，versionCode 21 / 2.0.3，包名 `com.vnimy.zerotier`）。
 > 旧包名 1.0.13 的 `artifacts/ZerotierFix-1.16.2-debug.apk` 与阶段1 的 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2）保留作回退。
 
 ---
@@ -159,7 +160,7 @@ patches/zerotierfix/
     ├── planet-from-mkworld.bin       1.16.2 vendored mkworld 真实产物（276 字节）
     └── last-run.log                    最近一次验证输出（PASS=28 FAIL=0）
 artifacts/
-├── ZeroTier-1.16.2-debug.apk          当前交付：2.0.2 / versionCode 20，包名 com.vnimy.zerotier
+├── ZeroTier-1.16.2-debug.apk          当前交付：2.0.3 / versionCode 21，包名 com.vnimy.zerotier
 ├── ZerotierFix-1.16.2-debug.apk       旧包名回退：1.0.13 / versionCode 17
 └── ZerotierFix-1.12.2-debug.apk       阶段1 回退版：core 1.12.2
 ```
@@ -401,8 +402,8 @@ PASS=28 FAIL=0
 | 项 | 值 |
 | --- | --- |
 | APK（当前交付） | `D:\Projects\zerotier\zt-stack\artifacts\ZeroTier-1.16.2-debug.apk`（core 1.16.2，包名 `com.vnimy.zerotier`） |
-| 大小 | 23,907,046 字节（22.80 MiB） |
-| SHA256 | `a4d3e1c41d3843645b991769b241c1ddb6853c9ceabfaebb2172065448a15a8b`（补丁 0013，含 0003~0013 + 快捷设置磁贴 + 长按打开 App + 包名迁移 + 扫码添加网络 + 官方橙色主题，versionCode 20 / 2.0.2；旧包名 1.0.13 为 `e03413a8…`，阶段7 为 `3a55ad11…`，阶段6 为 `37803830…`，阶段5 为 `e02afc18…`，阶段4 为 `7068be7d…`，阶段3 为 `34876890…`，阶段2 为 `30bc5959…`） |
+| 大小 | 23,909,378 字节（22.80 MiB） |
+| SHA256 | `4e754f3f4883edda651bead51f2d98340214908a64a5eaeffd8a1b4e7f1214df`（2.0.3，含 0003~0013 + 快捷设置磁贴 + 长按打开 App + 包名迁移 + 扫码添加网络 + 官方橙色主题 + 磁贴即时刷新，versionCode 21 / 2.0.3；旧包名 1.0.13 为 `e03413a8…`，阶段7 为 `3a55ad11…`，阶段6 为 `37803830…`，阶段5 为 `e02afc18…`，阶段4 为 `7068be7d…`，阶段3 为 `34876890…`，阶段2 为 `30bc5959…`） |
 | APK（旧包名回退） | `artifacts\ZerotierFix-1.16.2-debug.apk`（1.0.13 / versionCode 17，包名 `net.kaaass.zerotierfix`） |
 | 大小 / SHA256 | 23,906,940 字节 / `e03413a83b8593b3dc6d04fa48a07566a725fbcbb31548c5210d9a639dee0796` |
 | APK（阶段1 回退） | `artifacts\ZerotierFix-1.12.2-debug.apk`（core 1.12.2） |
@@ -415,6 +416,7 @@ PASS=28 FAIL=0
 
 ### 8.3 未在本阶段验证的内容（不要当成已验证）
 
+- **2.0.3 快捷磁贴即时刷新**：真机验证通过（用户确认），连接/断开时磁贴无需关闭面板即可更新；其余功能未做额外回归。
 - **2.0.2 新包名真机安装与扫码添加网络**：本次只验证了构建、包名 `com.vnimy.zerotier`、versionCode 20 与签名证书（`944e16…`），
   尚未在设备上安装；旧包 `net.kaaass.zerotierfix` 需先卸载，网络配置需重新添加。扫码添加网络已通过单元测试与构建验证，尚未做真机扫码走查；橙色主题仅完成构建验证，尚未做真机视觉走查。
 - **真机/模拟器安装运行（含阶段2）**：阶段2 的 1.16.2 APK 已在真机安装并连上自建网络（`Vnimy-Home`，

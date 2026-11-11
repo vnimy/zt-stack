@@ -344,7 +344,7 @@ sha256sum planet-data/zerotier.apk     # 记下来，写进清单
 
 # 2) 写清单（versionCode 必须大于用户已装版本才会提示）
 cat > planet-data/version.json <<'EOF'
-{"versionCode": 20, "versionName": "2.0.2",
+{"versionCode": 21, "versionName": "2.0.3",
  "url": "https://zt.vnimy.com/app/zerotier.apk",
  "notes": "这次改了什么，客户端弹窗里会原样显示"}
 EOF
@@ -410,7 +410,7 @@ curl -sI https://zt.vnimy.com/app/zerotier.apk | head -1
 | 行星节点镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2` | `sha256:d4f91480ae9e973c9d5f8b349e34eb77d0e6fc7bd74772223f4e0584c2b0d336`，180 MB |
 | 本地同名 tag | `zt-stack/planet-node:1.16.2` | 同一 image id `d4f91480ae9e`（历史兼容名） |
 | 客户端镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-client:1.16.2`（`client-node/`，只从行星镜像取二进制） | `sha256:6a94e872946e464bdb361063cbdfd9bc5b112e0c92c4fc0bf1f38156cd0b7ad4`，38,384,335 B |
-| Android 客户端 | 交付 `artifacts/ZeroTier-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务/通知断开 + 路由表/扫码导入 + 网络切换自愈 + 检查更新 + 快捷设置磁贴（长按打开 App）+ 包名迁移 + 扫码添加网络 + 官方橙色主题，versionCode 20 / 2.0.2，包名 `com.vnimy.zerotier`）<br>旧包名回退 `artifacts/ZerotierFix-1.16.2-debug.apk`（1.0.13）<br>阶段1 回退 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 2.0.2：23,907,046 B，`sha256:a4d3e1c41d3843645b991769b241c1ddb6853c9ceabfaebb2172065448a15a8b`<br>1.0.13：23,906,940 B，`sha256:e03413a83b8593b3dc6d04fa48a07566a725fbcbb31548c5210d9a639dee0796`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
+| Android 客户端 | 交付 `artifacts/ZeroTier-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务/通知断开 + 路由表/扫码导入 + 网络切换自愈 + 检查更新 + 快捷设置磁贴（长按打开 App）+ 包名迁移 + 扫码添加网络 + 官方橙色主题 + 快捷磁贴即时刷新，versionCode 21 / 2.0.3，包名 `com.vnimy.zerotier`）<br>旧包名回退 `artifacts/ZerotierFix-1.16.2-debug.apk`（1.0.13）<br>阶段1 回退 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 2.0.3：23,909,378 B，`sha256:4e754f3f4883edda651bead51f2d98340214908a64a5eaeffd8a1b4e7f1214df`<br>1.0.13：23,906,940 B，`sha256:e03413a83b8593b3dc6d04fa48a07566a725fbcbb31548c5210d9a639dee0796`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 离线发布包 | `release/dist/`（由 `release/build-release.sh` 生成，**不入库**） | tar `planet-node-1.16.2.tar.gz` 44,009,044 B，`sha256:6da744fc6f665943b557229cafe2fcf807ae35603574ad262000581a164664c4` |
 | 镜像源码 | `planet-node/`（Dockerfile + entrypoint + vendored mkworld） | 构建基准 = ZeroTierOne tag `1.16.2`（commit `a5807560`） |
 
