@@ -1,0 +1,497 @@
+From b891401ca02a93304dc67b275cafa7ee80da006a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E6=9D=A8=E5=98=89=E7=A5=A5?= <vnimy@live.com>
+Date: Wed, 11 Nov 2026 10:23:04 +0800
+Subject: [PATCH] =?UTF-8?q?feat(android):=20=E5=BF=AB=E6=8D=B7=E8=AE=BE?=
+ =?UTF-8?q?=E7=BD=AE=E7=A3=81=E8=B4=B4=EF=BC=8C=E4=B8=80=E9=94=AE=E8=BF=9E?=
+ =?UTF-8?q?=E6=8E=A5/=E6=96=AD=E5=BC=80=20VPN?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- 新增 ZeroTierTileService：下拉快捷设置中显示连接状态，点击连接/断开
+- 连接状态三态（未连接/连接中/已连接），与前台服务同步刷新
+- 首次连接自动打开 App 完成 VPN 授权，授权后自动继续连接
+- 从磁贴或通知栏断开后，App 内网络开关同步复位
+- 新增磁贴图标与中英文文案
+- versionCode 16 / versionName 1.0.12
+---
+ app/build.gradle                              |   4 +-
+ app/src/main/AndroidManifest.xml              |  16 ++
+ .../service/ZeroTierOneService.java           |  35 ++++
+ .../service/ZeroTierTileService.java          | 193 ++++++++++++++++++
+ .../zerotierfix/ui/NetworkListFragment.java   |  37 ++++
+ .../kaaass/zerotierfix/util/Constants.java    |  10 +
+ .../drawable/ic_quick_settings_zero_tier.xml  |  20 ++
+ app/src/main/res/values-zh/strings.xml        |   5 +
+ app/src/main/res/values/strings.xml           |   5 +
+ 9 files changed, 323 insertions(+), 2 deletions(-)
+ create mode 100644 app/src/main/java/net/kaaass/zerotierfix/service/ZeroTierTileService.java
+ create mode 100644 app/src/main/res/drawable/ic_quick_settings_zero_tier.xml
+
+diff --git a/app/build.gradle b/app/build.gradle
+index fca43c6..dac2556 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -16,8 +16,8 @@ android {
+         applicationId "net.kaaass.zerotierfix"
+         minSdkVersion rootProject.ext.minSdkVersion
+         targetSdkVersion rootProject.ext.targetSdkVersion
+-        versionCode 15
+-        versionName "1.0.11"
++        versionCode 16
++        versionName "1.0.12"
+         multiDexEnabled true
+ 
+         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 1248063..033ae95 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -32,6 +32,22 @@
+             </intent-filter>
+         </service>
+ 
++        <!-- 快捷设置磁贴：下拉面板中的 ZeroTier 连接开关 -->
++        <service
++            android:name=".service.ZeroTierTileService"
++            android:enabled="true"
++            android:exported="true"
++            android:icon="@drawable/ic_quick_settings_zero_tier"
++            android:label="@string/quick_settings_tile_label"
++            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
++            <intent-filter>
++                <action android:name="android.service.quicksettings.action.QS_TILE" />
++            </intent-filter>
++            <meta-data
++                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
++                android:value="true" />
++        </service>
++
+         <activity
+             android:name=".ui.NetworkListActivity"
+             android:label="@string/app_name"
+diff --git a/app/src/main/java/net/kaaass/zerotierfix/service/ZeroTierOneService.java b/app/src/main/java/net/kaaass/zerotierfix/service/ZeroTierOneService.java
+index eb67c18..8ef1b5d 100644
+--- a/app/src/main/java/net/kaaass/zerotierfix/service/ZeroTierOneService.java
++++ b/app/src/main/java/net/kaaass/zerotierfix/service/ZeroTierOneService.java
+@@ -101,6 +101,20 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
+      * 通知栏「断开」按钮发来的动作
+      */
+     public static final String ACTION_DISCONNECT = "net.kaaass.zerotierfix.action.DISCONNECT";
++
++    /**
++     * 快捷设置磁贴使用的连接状态
++     */
++    public static final int STATE_IDLE = 0;
++    public static final int STATE_CONNECTING = 1;
++    public static final int STATE_CONNECTED = 2;
++
++    private static volatile int connectionState = STATE_IDLE;
++
++    public static int getConnectionState() {
++        return connectionState;
++    }
++
+     private final IBinder mBinder = new ZeroTierBinder();
+     private final DataStore dataStore = new DataStore(this);
+     private final EventBus eventBus = EventBus.getDefault();
+@@ -363,6 +377,7 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
+         }
+ 
+         // 启动 ZT 服务
++        setConnectionState(STATE_CONNECTING);
+         synchronized (this) {
+             try {
+                 // 创建本地 ZT 服务 Socket，监听本地端口
+@@ -394,6 +409,7 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
+                         Log.d(TAG, "ZeroTierOne Node Initialized");
+                     } else {
+                         Log.e(TAG, "Error starting ZT1 Node: " + result);
++                        setConnectionState(STATE_IDLE);
+                         return START_NOT_STICKY;
+                     }
+                     this.onNodeStatusRequest(null);
+@@ -444,6 +460,7 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
+                 }
+             } catch (Exception e) {
+                 Log.e(TAG, e.toString(), e);
++                setConnectionState(STATE_IDLE);
+                 return START_NOT_STICKY;
+             }
+         }
+@@ -604,7 +621,22 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
+         }
+     }
+ 
++    /**
++     * 更新连接状态并通知快捷设置磁贴刷新。
++     */
++    private void setConnectionState(int state) {
++        if (connectionState == state) {
++            return;
++        }
++        connectionState = state;
++        Log.d(TAG, "Connection state changed to " + state);
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
++            ZeroTierTileService.requestTileRefresh(getApplicationContext());
++        }
++    }
++
+     public void stopZeroTier() {
++        setConnectionState(STATE_IDLE);
+         if (this.svrSocket != null) {
+             this.svrSocket.close();
+             this.svrSocket = null;
+@@ -1076,6 +1108,7 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
+             builder.addRoute(InetAddress.getByName("224.0.0.0"), 4);
+         } catch (Exception e) {
+             this.eventBus.post(new VPNErrorEvent(e.getLocalizedMessage()));
++            setConnectionState(STATE_IDLE);
+             return false;
+         }
+ 
+@@ -1110,6 +1143,7 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
+         this.vpnSocket = builder.establish();
+         if (this.vpnSocket == null) {
+             this.eventBus.post(new VPNErrorEvent(getString(R.string.toast_vpn_application_not_prepared)));
++            setConnectionState(STATE_IDLE);
+             return false;
+         }
+         this.in = new FileInputStream(this.vpnSocket.getFileDescriptor());
+@@ -1155,6 +1189,7 @@ public class ZeroTierOneService extends VpnService implements Runnable, EventLis
+                 .setContentIntent(pendingIntent).build();
+         // 以前台服务运行，避免息屏或切到后台后被系统回收
+         startForegroundCompat(notification);
++        setConnectionState(STATE_CONNECTED);
+         Log.i(TAG, "ZeroTier One Connected");
+ 
+         // 旧版本 Android 多播处理
+diff --git a/app/src/main/java/net/kaaass/zerotierfix/service/ZeroTierTileService.java b/app/src/main/java/net/kaaass/zerotierfix/service/ZeroTierTileService.java
+new file mode 100644
+index 0000000..e847cc5
+--- /dev/null
++++ b/app/src/main/java/net/kaaass/zerotierfix/service/ZeroTierTileService.java
+@@ -0,0 +1,193 @@
++package net.kaaass.zerotierfix.service;
++
++import android.app.PendingIntent;
++import android.content.ComponentName;
++import android.content.Context;
++import android.content.Intent;
++import android.net.VpnService;
++import android.os.Build;
++import android.preference.PreferenceManager;
++import android.service.quicksettings.Tile;
++import android.service.quicksettings.TileService;
++import android.util.Log;
++import android.widget.Toast;
++
++import androidx.annotation.RequiresApi;
++
++import net.kaaass.zerotierfix.R;
++import net.kaaass.zerotierfix.ZerotierFixApplication;
++import net.kaaass.zerotierfix.model.NetworkDao;
++import net.kaaass.zerotierfix.ui.NetworkListActivity;
++import net.kaaass.zerotierfix.util.Constants;
++
++/**
++ * 快捷设置磁贴：在通知面板下拉后提供类似飞行模式的 ZeroTier 连接开关。
++ * <p>
++ * 点击行为：
++ * - 已连接 / 正在连接：断开；
++ * - 未连接：连接最近一次使用的网络。若尚未授予 VPN 权限，则打开 App 并留下一次性请求，
++ * 由 {@link net.kaaass.zerotierfix.ui.NetworkListFragment} 在回到前台后自动继续连接。
++ * <p>
++ * 磁贴只会在 Android 7.0（API 24）及以上出现。
++ */
++@RequiresApi(Build.VERSION_CODES.N)
++public class ZeroTierTileService extends TileService {
++    private static final String TAG = "ZT1_Tile";
++
++    /**
++     * 一次性连接请求的有效期。超过这个时间的请求视为过期，避免很久以后打开 App 时意外连接。
++     */
++    private static final long CONNECT_REQUEST_TTL_MS = 15_000L;
++
++    @Override
++    public void onTileAdded() {
++        super.onTileAdded();
++        updateTile();
++    }
++
++    @Override
++    public void onStartListening() {
++        super.onStartListening();
++        updateTile();
++    }
++
++    @Override
++    public void onClick() {
++        int state = ZeroTierOneService.getConnectionState();
++        if (state != ZeroTierOneService.STATE_IDLE) {
++            // 已连接或正在连接：断开（与通知栏「断开」按钮相同的清理流程）
++            Log.i(TAG, "Disconnect requested from quick settings tile");
++            if (!tryStartService(new Intent(this, ZeroTierOneService.class)
++                    .setAction(ZeroTierOneService.ACTION_DISCONNECT))) {
++                // 后台启动受限时至少让用户能回到 App 操作
++                openApp();
++            }
++            return;
++        }
++
++        long networkId = findLastActivatedNetworkId();
++        if (networkId == 0) {
++            Toast.makeText(this, R.string.quick_settings_tile_no_network, Toast.LENGTH_SHORT).show();
++            openApp();
++            return;
++        }
++
++        Intent startIntent = new Intent(this, ZeroTierOneService.class)
++                .putExtra(ZeroTierOneService.ZT1_NETWORK_ID, networkId);
++        if (VpnService.prepare(this) == null) {
++            // 已授予 VPN 权限，直接连接，无需打开 App
++            Log.i(TAG, "Connect requested from quick settings tile");
++            if (!tryStartService(startIntent)) {
++                saveConnectRequest(networkId);
++                openApp();
++            }
++        } else {
++            // 尚未授予 VPN 权限：记录请求并打开 App，由列表页发起系统授权流程
++            Log.i(TAG, "VPN permission required, opening app");
++            saveConnectRequest(networkId);
++            openApp();
++        }
++    }
++
++    /**
++     * 刷新磁贴的亮灭状态与副标题。
++     */
++    private void updateTile() {
++        Tile tile = getQsTile();
++        if (tile == null) {
++            return;
++        }
++        int state = ZeroTierOneService.getConnectionState();
++        tile.setState(state == ZeroTierOneService.STATE_IDLE
++                ? Tile.STATE_INACTIVE
++                : Tile.STATE_ACTIVE);
++        tile.setLabel(getString(R.string.quick_settings_tile_label));
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
++            int stateRes;
++            if (state == ZeroTierOneService.STATE_CONNECTED) {
++                stateRes = R.string.quick_settings_tile_state_connected;
++            } else if (state == ZeroTierOneService.STATE_CONNECTING) {
++                stateRes = R.string.quick_settings_tile_state_connecting;
++            } else {
++                stateRes = R.string.quick_settings_tile_state_disconnected;
++            }
++            String stateText = getString(stateRes);
++            tile.setSubtitle(stateText);
++            tile.setContentDescription(getString(R.string.quick_settings_tile_label) + " " + stateText);
++        }
++        tile.updateTile();
++    }
++
++    /**
++     * 读取最近一次连接的网络。没有记录时返回 0。
++     */
++    private long findLastActivatedNetworkId() {
++        try {
++            var application = (ZerotierFixApplication) getApplication();
++            var daoSession = application.getDaoSession();
++            var networks = daoSession.getNetworkDao().queryBuilder()
++                    .where(NetworkDao.Properties.LastActivated.eq(true))
++                    .list();
++            if (networks != null && !networks.isEmpty()) {
++                return networks.get(0).getNetworkId();
++            }
++        } catch (Exception e) {
++            Log.e(TAG, "Failed to query last activated network", e);
++        }
++        return 0;
++    }
++
++    /**
++     * 记录一次性连接请求，供 App 回到前台后消费。
++     */
++    private void saveConnectRequest(long networkId) {
++        PreferenceManager.getDefaultSharedPreferences(this).edit()
++                .putLong(Constants.PREF_TILE_CONNECT_REQUESTED_AT, System.currentTimeMillis())
++                .putLong(Constants.PREF_TILE_CONNECT_NETWORK_ID, networkId)
++                .apply();
++    }
++
++    /**
++     * 打开网络列表页面。若 App 已经打开，则复用现有任务栈。
++     * 锁屏状态下先要求解锁，避免界面被锁屏遮挡。
++     */
++    private void openApp() {
++        unlockAndRun(this::launchApp);
++    }
++
++    private void launchApp() {
++        Intent intent = new Intent(this, NetworkListActivity.class)
++                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
++                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
++                        | Intent.FLAG_ACTIVITY_CLEAR_TOP);
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
++            PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
++                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
++            startActivityAndCollapse(pendingIntent);
++        } else {
++            startActivityAndCollapse(intent);
++        }
++    }
++
++    private boolean tryStartService(Intent intent) {
++        try {
++            startService(intent);
++            return true;
++        } catch (Exception e) {
++            Log.w(TAG, "Failed to start ZeroTier service from tile", e);
++            return false;
++        }
++    }
++
++    /**
++     * 通知系统重新回调 {@link #onStartListening()}，让磁贴显示最新状态。
++     */
++    public static void requestTileRefresh(Context context) {
++        try {
++            TileService.requestListeningState(context,
++                    new ComponentName(context, ZeroTierTileService.class));
++        } catch (Exception e) {
++            Log.w(TAG, "Failed to request tile listening state", e);
++        }
++    }
++}
+diff --git a/app/src/main/java/net/kaaass/zerotierfix/ui/NetworkListFragment.java b/app/src/main/java/net/kaaass/zerotierfix/ui/NetworkListFragment.java
+index 4ab37ca..d4bf1c8 100644
+--- a/app/src/main/java/net/kaaass/zerotierfix/ui/NetworkListFragment.java
++++ b/app/src/main/java/net/kaaass/zerotierfix/ui/NetworkListFragment.java
+@@ -300,6 +300,43 @@ public class NetworkListFragment extends Fragment {
+         updateNetworkListAndNotify();
+         this.eventBus.post(new NetworkListRequestEvent());
+         this.eventBus.post(new NodeStatusRequestEvent());
++        // 服务已被磁贴或通知栏断开时，复位列表里的开关
++        if (ZeroTierOneService.getConnectionState() == ZeroTierOneService.STATE_IDLE) {
++            this.viewModel.doChangeConnectNetwork(null);
++        }
++        // 处理磁贴留下的一次性连接请求（例如需要用户授权 VPN 时）
++        consumeTileConnectRequest();
++    }
++
++    /**
++     * 处理快捷设置磁贴留下的一次性连接请求。
++     * <p>
++     * 磁贴没有 VPN 授权时会先打开本页面并记录请求，用户回到前台后在这里继续发起连接。
++     */
++    private void consumeTileConnectRequest() {
++        var preferences = PreferenceManager.getDefaultSharedPreferences(requireContext());
++        long requestedAt = preferences.getLong(Constants.PREF_TILE_CONNECT_REQUESTED_AT, 0L);
++        if (requestedAt <= 0) {
++            return;
++        }
++        // 无论是否过期，请求都只消费一次
++        long networkId = preferences.getLong(Constants.PREF_TILE_CONNECT_NETWORK_ID, 0L);
++        preferences.edit()
++                .remove(Constants.PREF_TILE_CONNECT_REQUESTED_AT)
++                .remove(Constants.PREF_TILE_CONNECT_NETWORK_ID)
++                .apply();
++        if (networkId == 0 || System.currentTimeMillis() - requestedAt > 15_000L) {
++            Log.w(TAG, "Ignored stale tile connect request");
++            return;
++        }
++        if (ZeroTierOneService.getConnectionState() != ZeroTierOneService.STATE_IDLE) {
++            Log.d(TAG, "Ignored tile connect request, service is not idle");
++            return;
++        }
++        Log.i(TAG, "Connecting to network from quick settings tile: "
++                + Long.toHexString(networkId));
++        this.viewModel.doChangeConnectNetwork(networkId);
++        sendStartServiceIntent(networkId);
+     }
+ 
+     @Override
+diff --git a/app/src/main/java/net/kaaass/zerotierfix/util/Constants.java b/app/src/main/java/net/kaaass/zerotierfix/util/Constants.java
+index 8cba4d4..35be3b2 100644
+--- a/app/src/main/java/net/kaaass/zerotierfix/util/Constants.java
++++ b/app/src/main/java/net/kaaass/zerotierfix/util/Constants.java
+@@ -17,6 +17,16 @@ public class Constants {
+ 
+     public static final String PREF_DISABLE_NO_NOTIFICATION_ALERT = "disable_no_notification_alert";
+ 
++    /**
++     * 快捷设置磁贴发起连接时的时间戳（毫秒），由 App 回到前台后消费
++     */
++    public static final String PREF_TILE_CONNECT_REQUESTED_AT = "tile_connect_requested_at";
++
++    /**
++     * 快捷设置磁贴发起连接时指定的网络 ID
++     */
++    public static final String PREF_TILE_CONNECT_NETWORK_ID = "tile_connect_network_id";
++
+     public static final String FILE_CUSTOM_PLANET = "planet.custom";
+ 
+     public static final String FILE_PLANET_TEMP = "planet.custom.tmp";
+diff --git a/app/src/main/res/drawable/ic_quick_settings_zero_tier.xml b/app/src/main/res/drawable/ic_quick_settings_zero_tier.xml
+new file mode 100644
+index 0000000..facbcc7
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_quick_settings_zero_tier.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- 快捷设置磁贴图标：ZeroTier 六边形标志（单色，由系统着色） -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#00000000"
++        android:pathData="M12,2.6 L20.14,7.3 L20.14,16.7 L12,21.4 L3.86,16.7 L3.86,7.3 Z"
++        android:strokeColor="#FFFFFFFF"
++        android:strokeLineJoin="round"
++        android:strokeWidth="1.6" />
++    <path
++        android:fillColor="#00000000"
++        android:pathData="M12,12 L12,2.6 M12,12 L20.14,16.7 M12,12 L3.86,16.7"
++        android:strokeColor="#FFFFFFFF"
++        android:strokeLineCap="round"
++        android:strokeWidth="1.4" />
++</vector>
+diff --git a/app/src/main/res/values-zh/strings.xml b/app/src/main/res/values-zh/strings.xml
+index 7c5d395..7aa0b6c 100644
+--- a/app/src/main/res/values-zh/strings.xml
++++ b/app/src/main/res/values-zh/strings.xml
+@@ -163,6 +163,11 @@
+     <string name="planet_sync_failure">Planet 下载失败：%1$s</string>
+     <string name="planet_sync_fallback">Planet 下载失败，当前使用%1$s</string>
+     <string name="notification_action_disconnect">断开连接</string>
++    <string name="quick_settings_tile_label" translatable="false">ZeroTier</string>
++    <string name="quick_settings_tile_state_connected">已连接</string>
++    <string name="quick_settings_tile_state_connecting">正在连接…</string>
++    <string name="quick_settings_tile_state_disconnected">未连接</string>
++    <string name="quick_settings_tile_no_network">请先在 Zerotier Fix 中添加网络</string>
+     <string name="network_routes">路由</string>
+     <string name="network_no_routes">无</string>
+     <string name="route_default">默认路由</string>
+diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
+index e34b1b9..73bd750 100644
+--- a/app/src/main/res/values/strings.xml
++++ b/app/src/main/res/values/strings.xml
+@@ -149,6 +149,11 @@
+     <string name="notification_title_connected">Connected</string>
+     <string name="notification_text_connected">Connected to: %1$s</string>
+     <string name="notification_action_disconnect">Disconnect</string>
++    <string name="quick_settings_tile_label" translatable="false">ZeroTier</string>
++    <string name="quick_settings_tile_state_connected">Connected</string>
++    <string name="quick_settings_tile_state_connecting">Connecting…</string>
++    <string name="quick_settings_tile_state_disconnected">Disconnected</string>
++    <string name="quick_settings_tile_no_network">Add a network in Zerotier Fix first</string>
+     <string name="toast_vpn_application_not_prepared">VPN application is not prepared or is revoked.</string>
+     <string name="toast_network_status_ok">Successfully connected to network %1$s</string>
+     <string name="toast_network_status_access_denied">Cannot connect to network %1$s: Access denied</string>
+-- 
+2.55.0.windows.5
+

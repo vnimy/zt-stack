@@ -344,7 +344,7 @@ sha256sum planet-data/zerotierfix.apk     # 记下来，写进清单
 
 # 2) 写清单（versionCode 必须大于用户已装版本才会提示）
 cat > planet-data/version.json <<'EOF'
-{"versionCode": 16, "versionName": "1.0.12",
+{"versionCode": 17, "versionName": "1.0.13",
  "url": "https://zt.vnimy.com/app/zerotierfix.apk",
  "notes": "这次改了什么，客户端弹窗里会原样显示"}
 EOF
@@ -408,7 +408,7 @@ curl -sI https://zt.vnimy.com/app/zerotierfix.apk | head -1
 | 行星节点镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2` | `sha256:d4f91480ae9e973c9d5f8b349e34eb77d0e6fc7bd74772223f4e0584c2b0d336`，180 MB |
 | 本地同名 tag | `zt-stack/planet-node:1.16.2` | 同一 image id `d4f91480ae9e`（历史兼容名） |
 | 客户端镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-client:1.16.2`（`client-node/`，只从行星镜像取二进制） | `sha256:6a94e872946e464bdb361063cbdfd9bc5b112e0c92c4fc0bf1f38156cd0b7ad4`，38,384,335 B |
-| Android 客户端 | 交付 `artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务/通知断开 + 路由表/扫码导入 + 网络切换自愈 + 检查更新，versionCode 15 / 1.0.11）<br>回退 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 1.16.2：23,900,797 B，`sha256:3a55ad113197d07d9f38cd425803f58ecfc6545a8078f63daf83726ae2309ea0`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
+| Android 客户端 | 交付 `artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务/通知断开 + 路由表/扫码导入 + 网络切换自愈 + 检查更新 + 快捷设置磁贴（长按打开 App），versionCode 17 / 1.0.13）<br>回退 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 1.16.2：23,906,940 B，`sha256:e03413a83b8593b3dc6d04fa48a07566a725fbcbb31548c5210d9a639dee0796`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 离线发布包 | `release/dist/`（由 `release/build-release.sh` 生成，**不入库**） | tar `planet-node-1.16.2.tar.gz` 44,009,044 B，`sha256:6da744fc6f665943b557229cafe2fcf807ae35603574ad262000581a164664c4` |
 | 镜像源码 | `planet-node/`（Dockerfile + entrypoint + vendored mkworld） | 构建基准 = ZeroTierOne tag `1.16.2`（commit `a5807560`） |
 

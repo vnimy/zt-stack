@@ -1,6 +1,6 @@
-From 7e79e2d31a25c0e21e79dc1b6ac32eb02a28d5e0 Mon Sep 17 00:00:00 2001
-From: bathfire <bathfire@localhost>
-Date: Tue, 10 Nov 2026 23:11:47 +0800
+From bce2229709ab46324abdc2f26bc4fc1caf0351c1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E6=9D=A8=E5=98=89=E7=A5=A5?= <vnimy@live.com>
+Date: Wed, 11 Nov 2026 10:22:57 +0800
 Subject: [PATCH] =?UTF-8?q?build(android):=20JNI=20=E9=80=82=E9=85=8D=201.?=
  =?UTF-8?q?16.2=EF=BC=88C++17=E3=80=81objects.mk=20=E6=BA=90=E6=96=87?=
  =?UTF-8?q?=E4=BB=B6=E9=9B=86=E3=80=81prometheus=20=E5=A4=B4=E8=B7=AF?=

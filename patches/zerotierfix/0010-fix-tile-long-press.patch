@@ -1,0 +1,61 @@
+From c6f0523f878a5e0d93ba047d35e370623a2af698 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E6=9D=A8=E5=98=89=E7=A5=A5?= <vnimy@live.com>
+Date: Wed, 11 Nov 2026 10:23:04 +0800
+Subject: [PATCH] =?UTF-8?q?fix(android):=20=E9=95=BF=E6=8C=89=E5=BF=AB?=
+ =?UTF-8?q?=E6=8D=B7=E8=AE=BE=E7=BD=AE=E7=A3=81=E8=B4=B4=E6=89=93=E5=BC=80?=
+ =?UTF-8?q?=20App=20=E8=80=8C=E9=9D=9E=E5=BA=94=E7=94=A8=E4=BF=A1=E6=81=AF?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- 为 NetworkListActivity 添加 QS_TILE_PREFERENCES intent-filter
+- 系统默认长按磁贴跳转应用信息，声明后改为直接打开 App
+- versionCode 17 / versionName 1.0.13
+---
+ app/build.gradle                 | 4 ++--
+ app/src/main/AndroidManifest.xml | 6 ++++++
+ externals/core                   | 2 +-
+ 3 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/app/build.gradle b/app/build.gradle
+index dac2556..6b33bdf 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -16,8 +16,8 @@ android {
+         applicationId "net.kaaass.zerotierfix"
+         minSdkVersion rootProject.ext.minSdkVersion
+         targetSdkVersion rootProject.ext.targetSdkVersion
+-        versionCode 16
+-        versionName "1.0.12"
++        versionCode 17
++        versionName "1.0.13"
+         multiDexEnabled true
+ 
+         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 033ae95..2746968 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -57,6 +57,12 @@
+ 
+                 <category android:name="android.intent.category.LAUNCHER" />
+             </intent-filter>
++            <!-- 长按快捷设置磁贴时打开 App，而不是系统的应用信息页 -->
++            <intent-filter>
++                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
++
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
+         </activity>
+         <activity
+             android:name=".ui.JoinNetworkActivity"
+diff --git a/externals/core b/externals/core
+index d028a24..bce2229 160000
+--- a/externals/core
++++ b/externals/core
+@@ -1 +1 @@
+-Subproject commit d028a24795e4348615783f8f8b95207035595f56
++Subproject commit bce2229709ab46324abdc2f26bc4fc1caf0351c1
+-- 
+2.55.0.windows.5
+

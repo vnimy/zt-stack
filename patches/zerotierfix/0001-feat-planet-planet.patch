@@ -1,7 +1,7 @@
-From ee08598c9002876fc6e44547629793940dd194fe Mon Sep 17 00:00:00 2001
-From: zt-stack <zt-stack@local>
-Date: Tue, 10 Nov 2026 09:37:15 +0800
-Subject: [PATCH 1/2] =?UTF-8?q?feat(planet):=20=E6=94=AF=E6=8C=81=E5=A1=AB?=
+From d6431a02b9429778b13dba17bea5e2d45327c727 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E6=9D=A8=E5=98=89=E7=A5=A5?= <vnimy@live.com>
+Date: Wed, 11 Nov 2026 10:23:03 +0800
+Subject: [PATCH] =?UTF-8?q?feat(planet):=20=E6=94=AF=E6=8C=81=E5=A1=AB?=
  =?UTF-8?q?=E5=86=99=E8=A1=8C=E6=98=9F=E6=9C=8D=E5=8A=A1=E5=99=A8=E5=9C=B0?=
  =?UTF-8?q?=E5=9D=80=EF=BC=8C=E5=90=AF=E5=8A=A8=E5=89=8D=E8=87=AA=E5=8A=A8?=
  =?UTF-8?q?=E4=B8=8B=E8=BD=BD=20planet?=
