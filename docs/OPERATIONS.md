@@ -361,6 +361,18 @@ curl -sI https://zt.vnimy.com/app/zerotierfix.apk | head -1
 - 反代（nginx）需要把 `/version.json` 与 `/app/` 两条转给 3000 端口；仓库里的 `docs/NGINX-反代.md` 已包含。漏配时表现为客户端提示「检查更新失败」。
 - 想强制所有客户端都更新时，不要改 `versionCode` 玩花招（App 会一直提示），直接发通知/公告即可。
 
+### 6.7 下载页与二维码
+
+`https://zt.vnimy.com/dl/`（或直连 `http://<IP>:3000/`）是同一个下载页，列出 `/planet`、`/moons` 与 Android 客户端，并显示：
+
+- 当前客户端版本与体积 —— 读 `planet-data/version.json` 与 `planet-data/zerotierfix.apk`，没有这两个文件就只显示 planet 部分
+- planet 的二维码（`/qr.svg`），手机「设置 → 行星服务器 → 扫描二维码导入」直接扫，扫到的就是页面下方印的 `https://<域名>/planet`
+- `/qr.svg?path=/app/zerotierfix.apk` 可换成客户端安装包的二维码
+
+二维码由 `planet-node/vendor/qrcodegen.py` 生成（Nayuki, MIT，来源与 sha256 见 `planet-node/vendor/README.md`），容器里以 `./qrcodegen.py:/usr/local/bin/qrcodegen.py:ro` 挂进去。这个文件缺失时页面只是不显示二维码、`/qr.svg` 返回 503，其余端点不受影响。
+
+反代需要额外放行 `location = /qr.svg`、`location = /dl`、`location ^~ /dl/`（见 `docs/NGINX-反代.md`）；二维码里的域名来自请求的 `X-Forwarded-Proto`/`Host`，所以从 https 入口访问时二维码才带 `https://`。
+
 ---
 
 ## 7. 排障对照表
@@ -379,5 +391,7 @@ curl -sI https://zt.vnimy.com/app/zerotierfix.apk | head -1
 | 备份出来的 `planet-data` 里 identity 与线上不一致 | 部署用的是 bind mount，备份的却是同名命名卷 | 按 1.1 的说明用 `docker inspect ... .Mounts` 确认实际数据目录 |
 | `/planet` 返回 401 | token 已启用 | 加 `?token=` 或 `Authorization: Bearer` |
 | `/planet` 内容与容器内不一致 | 反向代理缓存/压缩 | 走 Caddy 直连，别加 CDN |
+| `/qr.svg` 返回 503 | 容器里没有 `qrcodegen.py`（挂载漏了） | 补 `./qrcodegen.py:/usr/local/bin/qrcodegen.py:ro` 后重建 zerotier |
+| `/dl/` 404 或打开是面板 | 反代没放行 `/dl`、`/dl/` | 按 `docs/NGINX-反代.md` 补 location 后 `nginx -s reload` |
 | 换 IP 后所有客户端失联 | planet 端点变了但客户端还是旧 planet | 重新分发 planet（第 4 节） |
 | `docker compose up` 报端口占用 | 3000/9994 被别的服务占了 | 用 `--files-port` / `--zt-port` / `--ztnet-port` 换端口后重跑 deploy.sh |

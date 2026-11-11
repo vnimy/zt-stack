@@ -28,6 +28,7 @@
 | 服务器 / 目录 | `81.69.244.33`（`VM-0-17-ubuntu`），`/root/docker/zerotier/`，compose 项目名 `zt-stack` |
 | 数据卷 | **bind mount** `./planet-data:/var/lib/zerotier-one`；**不是**命名卷 `zt-stack_planet-data`（那是早期实验残留，identity `e3414c140d`，与线上无关） |
 | 下载服务 | 线上把 `./planet-files.py` 单独 bind mount 到 `/usr/local/bin/planet-files.py:ro`，改脚本不用重编镜像；`version.json` 与 `zerotierfix.apk` 直接放 `planet-data/`（见 OPERATIONS §6.6） |
+| 二维码 | `./qrcodegen.py`（vendored，Nayuki MIT）挂到 `/usr/local/bin/qrcodegen.py:ro`；下载页 `https://zt.vnimy.com/dl/`，二维码 `https://zt.vnimy.com/qr.svg`（见 OPERATIONS §6.7） |
 | 外部反代 | 容器 `nginx`（镜像 `nginx-with-auth`），配置在宿主机 `/root/docker/nginx/conf.d/zerotier.conf`，示例见 `docs/NGINX-反代.md` |
 | 端口 | `ZT_PORT=9993`（仓库默认 9994）；面板 3001 由外部 nginx 反代到 443 |
 | planet 下载 | `https://zt.vnimy.com/planet`（nginx 直通 3000，TLS 为 ZeroSSL 正式证书） |
@@ -127,6 +128,7 @@ cd dist && bash install.sh -i <公网IP>      # 有 tar 就 load，没有就 pul
 端口：`9994/tcp+udp`（必须对公网放行，planet 里的端点）、`3000/tcp`（planet 下载）、`3001/tcp`（面板）。走自带 TLS 再加 `80/443`。
 
 ### 5.2 客户端接入
+- **下载页**：`https://<域名>/dl/`（或直连 `http://<IP>:3000/`）一页拿到 planet、moons、APK，以及 planet 的二维码（手机扫码即导入）。
 - **Android**：装 `artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2；老设备可用 `ZerotierFix-1.12.2-debug.apk`）→ 设置 →「行星服务器（自动下载）」填**完整路径到 `/planet`**：`http(s)://<IP>:3000/planet`，token 填下一栏。App 只补协议头，不补路径。
 - **Windows/Linux/macOS**：用 `clients/` 下对应脚本，只给**站点根**：`-ServerUrl http://<IP>:3000` / `--server-url http://<IP>:3000`（+ 可选 token）。脚本自己拼 `/planet`（`BASE="${SERVER_URL%/}"; URL="$BASE/planet"`），再备份旧 planet、原子替换、重启服务。
   - 常见错误：给脚本传 `…/planet` 会变成 `/planet/planet` 而 404；给 Android 只传 `http://IP:3000` 会 404。两者要求相反，注意区分。

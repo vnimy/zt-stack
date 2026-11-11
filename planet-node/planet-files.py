@@ -9,6 +9,8 @@ Serves, out of /var/lib/zerotier-one:
   GET /version.json   latest client build info, read from $ZT_HOME/version.json
   GET /app/zerotierfix.apk
                       latest Android build, read from $ZT_HOME/zerotierfix.apk
+  GET /qr.svg         QR code (SVG) of the planet URL, for the Android client's
+                      "import from QR code"; ?path=/app/zerotierfix.apk for the APK
   GET /               tiny HTML index page
 
 Auth: when DOWNLOAD_TOKEN is non-empty, every endpoint except /healthz requires
@@ -23,7 +25,12 @@ import os
 import re
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse
+
+try:  # vendored next to this file; only /qr.svg needs it
+    import qrcodegen
+except ImportError:  # pragma: no cover - the page hides the QR block instead
+    qrcodegen = None
 
 ZT_HOME = os.environ.get("ZT_HOME", "/var/lib/zerotier-one")
 PLANET_PATH = os.path.join(ZT_HOME, "planet")
@@ -38,7 +45,9 @@ MOON_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.moon$")
 INDEX_TEMPLATE = """<!doctype html>
 <html><head><meta charset="utf-8"><title>ZeroTier planet</title>
 <style>body{font-family:system-ui,sans-serif;margin:2rem;max-width:48rem}
-code{background:#f2f2f2;padding:.1rem .3rem;border-radius:3px}</style></head>
+code{background:#f2f2f2;padding:.1rem .3rem;border-radius:3px}
+.qr{display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap;margin:1rem 0}
+.qr img{width:200px;height:200px;border:1px solid #ddd;border-radius:6px;background:#fff}</style></head>
 <body>
 <h1>ZeroTier planet node</h1>
 <ul>
@@ -46,6 +55,15 @@ code{background:#f2f2f2;padding:.1rem .3rem;border-radius:3px}</style></head>
 <li><a href="/moons@@SUFFIX@@">moons</a> (JSON list)</li>
 <li><a href="/app/zerotierfix.apk@@SUFFIX@@">Android client</a> (ZerotierFix APK)</li>
 </ul>
+<h2>Android client</h2>
+<p>@@APP_VERSION@@ &middot; <a href="/app/zerotierfix.apk@@SUFFIX@@">download</a></p>
+<div class="qr">
+@@QR_BLOCK@@
+<div>
+<p>Scan with the app: <b>Settings &rarr; Planet server &rarr; Import from QR code</b>.</p>
+<p>The code carries <code>@@PLANET_URL@@</code>.</p>
+</div>
+</div>
 <h2>Moons</h2>
 <ul>@@ROWS@@</ul>
 <h2>Client setup</h2>
@@ -61,6 +79,44 @@ ZeroTier service.</p>
 def log(message):
     sys.stderr.write("planet-files: %s\n" % message)
     sys.stderr.flush()
+
+
+def human_size(num):
+    value = float(num)
+    for unit in ("B", "KB", "MB", "GB"):
+        if value < 1024 or unit == "GB":
+            return "%d B" % value if unit == "B" else "%.1f %s" % (value, unit)
+        value /= 1024.0
+    return "%d B" % num
+
+
+def qr_svg(text, scale=6, border=4):
+    """Render text as an SVG QR code (vector, no extra dependencies)."""
+    code = qrcodegen.QrCode.encode_text(text, qrcodegen.QrCode.Ecc.MEDIUM)
+    size = code.get_size()
+    dimension = (size + 2 * border) * scale
+    runs = []
+    for y in range(size):
+        x = 0
+        while x < size:
+            if not code.get_module(x, y):
+                x += 1
+                continue
+            run = 1
+            while x + run < size and code.get_module(x + run, y):
+                run += 1
+            runs.append(
+                "M%d %dh%dv%dh-%dz"
+                % ((x + border) * scale, (y + border) * scale, run * scale, scale, run * scale)
+            )
+            x += run
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d"'
+        ' shape-rendering="crispEdges">'
+        '<rect width="100%%" height="100%%" fill="#ffffff"/>'
+        '<path d="%s" fill="#000000"/></svg>'
+        % (dimension, dimension, dimension, dimension, "".join(runs))
+    )
 
 
 def sha256_of(path):
@@ -153,6 +209,28 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send(200, json.dumps(data, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
 
+    def _public_base(self):
+        """scheme://host as the browser or proxy sees us, for links and QR codes."""
+        proto = (self.headers.get("X-Forwarded-Proto") or "http").split(",")[0].strip().lower()
+        host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "").split(",")[0].strip()
+        if not host:
+            host = "127.0.0.1:%d" % PORT
+        return "%s://%s" % (proto or "http", host)
+
+    def _serve_qr(self, query):
+        if qrcodegen is None:
+            self._send(503, b"503 QR support is not installed\n", "text/plain; charset=utf-8")
+            return
+        path = (query.get("path") or ["/planet"])[0]
+        if path not in ("/planet", "/app/zerotierfix.apk"):
+            self._send(400, b"400 path must be /planet or /app/zerotierfix.apk\n", "text/plain; charset=utf-8")
+            return
+        url = self._public_base() + path
+        token = (query.get("token") or [""])[0]
+        if token:
+            url += "?token=" + quote(token, safe="")
+        self._send(200, qr_svg(url).encode("utf-8"), "image/svg+xml; charset=utf-8")
+
     def _index_page(self, query):
         token = (query.get("token") or [""])[0]
         suffix = ("?token=" + token) if token else ""
@@ -165,10 +243,32 @@ class Handler(BaseHTTPRequestHandler):
             planet_digest = sha256_of(PLANET_PATH)
         except OSError:
             pass
+        app_version = "not published"
+        try:
+            with open(VERSION_PATH, "rb") as fp:
+                info = json.loads(fp.read().decode("utf-8"))
+            if isinstance(info, dict) and isinstance(info.get("versionCode"), int):
+                app_version = "%s (code %d)" % (info.get("versionName") or "?", info["versionCode"])
+        except (OSError, ValueError, UnicodeDecodeError):
+            pass
+        try:
+            app_version += " &middot; %s" % human_size(os.path.getsize(APP_APK_PATH))
+        except OSError:
+            pass
+        planet_url = self._public_base() + "/planet"
+        if token:
+            planet_url += "?token=" + quote(token, safe="")
+        if qrcodegen is None:
+            qr_block = "<p><em>QR support not installed.</em></p>"
+        else:
+            qr_block = '<img src="/qr.svg%s" width="200" height="200" alt="planet QR code">' % suffix
         # str.replace, not %/format: the page contains CSS braces and percent signs
         html = INDEX_TEMPLATE.replace("@@SUFFIX@@", suffix)
         html = html.replace("@@DIGEST@@", planet_digest)
         html = html.replace("@@ROWS@@", rows)
+        html = html.replace("@@APP_VERSION@@", app_version)
+        html = html.replace("@@PLANET_URL@@", planet_url)
+        html = html.replace("@@QR_BLOCK@@", qr_block)
         self._send(200, html.encode(), "text/html; charset=utf-8")
 
     # ----------------------------------------------------------------- routes
@@ -207,6 +307,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, body, "application/json")
             elif path == "/version.json":
                 self._serve_version()
+            elif path == "/qr.svg":
+                self._serve_qr(query)
             elif path == "/app/zerotierfix.apk":
                 self._serve_file(APP_APK_PATH, "zerotierfix.apk")
             elif path.startswith("/moon/"):
