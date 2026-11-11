@@ -1,9 +1,9 @@
 # ZeroTier：填地址即用（行星服务器）+ 工具链现代化
 
-本文件是 ZeroTier（基于 `kaaass/ZerotierFix` master 的 `vnimy/ZeroTier` 仓库）的历史交付记录：
+本文件是 ZeroTier（基于 `kaaass/ZerotierFix` master 的 `vnimy/ZeroTier-Android` 仓库）的历史交付记录：
 包含可复现的补丁序列、构建脚本、客户端端到端验证脚本，以及各版本 APK 的交付信息。
 
-> **2026-11-11 起**：补丁序列（0001–0013）已移除，Android 客户端源码以 [vnimy/ZeroTier](https://github.com/vnimy/ZeroTier) 为准；
+> **2026-11-11 起**：补丁序列（0001–0013）已移除，Android 客户端源码以 [vnimy/ZeroTier-Android](https://github.com/vnimy/ZeroTier-Android) 为准；
 > 构建脚本见 `tools/build-client.sh`，端到端测试见 `tests/zerotierfix/`。以下内容保留为历史记录。
 
 - **阶段1**：App 里直接填「行星服务器地址」，启动时自动下载 planet（免手动导入 planet 文件）；
@@ -380,7 +380,7 @@ notifyPlanetSyncResult(PlanetSyncManager.syncBeforeStart(this));  // 返回 null
 ### 8.1 客户端端到端验证（可复跑，不需要设备）
 
 ```bash
-bash zt-stack/tests/zerotierfix/run-planet-sync-test.sh D:/Projects/zerotier/ZerotierFix
+bash zt-stack/tests/zerotierfix/run-planet-sync-test.sh D:/Projects/zerotier/ZeroTier-Android
 ```
 
 它用 JDK17 编译 **App 里真实的生产代码**（`Constants.java` + `PlanetSyncer.java`，两者都不 import Android），

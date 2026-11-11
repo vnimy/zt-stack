@@ -4,11 +4,11 @@
 #   2. 起一个真实本地 HTTP 服务，把假 planet 下载到 App 使用的同一个文件名
 #   3. 断言下载/校验/备份/回退/重试/token 行为
 #
-# 用法: bash run-planet-sync-test.sh [ZerotierFix 仓库路径]
+# 用法: bash run-planet-sync-test.sh [ZeroTier-Android 仓库路径]
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-REPO="${1:-D:/Projects/zerotier/ZerotierFix}"
+REPO="${1:-D:/Projects/zerotier/ZeroTier-Android}"
 JAVA_HOME="${JAVA_HOME:-D:/Projects/MM678/build-android/tools/jdk-17.0.20.1+1}"
 JAVAC="$JAVA_HOME/bin/javac"
 JAVA="$JAVA_HOME/bin/java"

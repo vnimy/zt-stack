@@ -200,7 +200,7 @@ moon（如果要用 moon 而不是 planet）在 ```/moons``` 与 ```/moon/<文�
 | Windows | ```clients/windows/install-planet.ps1``` / ```.cmd``` | 写入 ```%LOCALAPPDATA%\ZeroTier\One\planet```，重启服务 |
 | macOS | ```clients/macos/install-planet.command``` | 写入 ```/Library/Application Support/ZeroTier/One/planet``` |
 | Linux | ```clients/linux/install-planet.sh``` | 写入 ```/var/lib/zerotier-one/planet``` |
-| Android | [```vnimy/ZeroTier```](https://github.com/vnimy/ZeroTier) | ZeroTier 客户端源码与 APK；只用 ```Authorization: Bearer``` 下载 planet |
+| Android | [```vnimy/ZeroTier-Android```](https://github.com/vnimy/ZeroTier-Android) | ZeroTier 客户端源码与 APK；只用 ```Authorization: Bearer``` 下载 planet |
 
 脚本同时支持 ```?token=``` 与 ```Authorization: Bearer```；Android 只发 Bearer，
 所以服务端两种都实现了（见 ```planet-node/planet-files.py```）。

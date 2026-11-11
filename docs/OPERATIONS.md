@@ -471,7 +471,7 @@ curl -sI https://zt.vnimy.com/app/zerotier.apk | head -1
 ```bash
 bash zt-stack/planet-node/verify.sh                 # 43 条：planet 生成、controller、下载、幂等、换 IP 保身份
 bash zt-stack/scripts/e2e-verify.sh                 # 端到端：客户端换 planet → peers 出现 PLANET → 网络 OK
-bash zt-stack/tests/zerotierfix/run-planet-sync-test.sh D:/Projects/zerotier/ZerotierFix   # 28 条
+bash zt-stack/tests/zerotierfix/run-planet-sync-test.sh D:/Projects/zerotier/ZeroTier-Android   # 28 条
 bash zt-stack/clients/test/test-download.sh         # 21 条（Linux/Windows 脚本的下载-校验-替换）
 bash zt-stack/release/build-release.sh && (cd zt-stack/release/dist && sha256sum -c SHA256SUMS)
 ```

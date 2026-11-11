@@ -18,7 +18,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 STACK_ROOT="$(cd "$HERE/.." && pwd)"
 BUILD_ROOT="${BUILD_ROOT:-$STACK_ROOT/.build}"
-REPO="${REPO:-D:/Projects/zerotier/ZerotierFix}"
+REPO="${REPO:-D:/Projects/zerotier/ZeroTier-Android}"
 export JAVA_HOME="${JAVA_HOME:-D:/Projects/MM678/build-android/tools/jdk-17.0.20.1+1}"
 ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-D:/Projects/MM678/build-android/android-sdk}"
 NDK_DIR="${NDK_DIR:-$ANDROID_SDK_ROOT/ndk/android-ndk-r28c}"
