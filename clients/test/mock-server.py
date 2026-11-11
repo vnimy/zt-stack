@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """mock-server.py - minimal planet-download server used to test the client scripts.
 
-Routes (the same contract the real zt-stack planet server exposes):
+Routes (the same contract the real zerotier-planet planet server exposes):
   GET /healthz  -> 200 {"status":"ok"}
   GET /planet   -> application/octet-stream binary planet file
                    token accepted as ?token=... or "Authorization: Bearer ..."

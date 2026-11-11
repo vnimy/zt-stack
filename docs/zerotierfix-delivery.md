@@ -175,14 +175,14 @@ JNI 适配不再需要手工 `git am`：`build.sh` 会在构建前应用 `tools/
 
 ```bash
 cd ZeroTier
-git checkout -b zt-stack master
+git checkout -b zerotier-planet master
 
 # 方式一：保留提交信息
-git am /path/to/zt-stack/patches/zerotierfix/*.patch
+git am /path/to/zerotier-planet/patches/zerotierfix/*.patch
 
 # 方式二：只要改动
-git apply /path/to/zt-stack/patches/zerotierfix/0001-*.patch
-git apply /path/to/zt-stack/patches/zerotierfix/0002-*.patch
+git apply /path/to/zerotier-planet/patches/zerotierfix/0001-*.patch
+git apply /path/to/zerotier-planet/patches/zerotierfix/0002-*.patch
 
 # core 源码（github.com 不可达时用可用的代理克隆后 checkout 到该 commit）
 git submodule update --init externals/core
@@ -215,8 +215,8 @@ git submodule update --init externals/core
 ### 3.1 一行构建
 
 ```bash
-bash zt-stack/tools/build-client.sh
-# 产物：zt-stack/artifacts/ZeroTier-stage1-debug.apk
+bash zerotier-planet/tools/build-client.sh
+# 产物：zerotier-planet/artifacts/ZeroTier-stage1-debug.apk
 ```
 
 脚本做的事：写 `ZeroTier/local.properties`（`sdk.dir`/`cmake.dir`/`ndk.dir`）→
@@ -227,14 +227,14 @@ bash zt-stack/tools/build-client.sh
 | `JAVA_HOME` | `D:/Projects/MM678/build-android/tools/jdk-17.0.20.1+1` | **必须 JDK17**（PATH 上的 java 是 1.8，AGP 8 不支持） |
 | `ANDROID_SDK_ROOT` | `D:/Projects/MM678/build-android/android-sdk` | 需含 platform 35 + build-tools 35.0.0 |
 | `NDK_DIR` | `$ANDROID_SDK_ROOT/ndk/android-ndk-r28c` | r28c（28.2.13676358） |
-| `CMAKE_DIR` | `<zt-stack>/.build/.toolchain/cmake-3.22.1` | core 的 `cmake_minimum_required(3.2)` 在 CMake 4 上会被拒绝，必须 3.22.x |
-| `GRADLE_USER_HOME` | `<zt-stack>/.build/.gradle-home` | 本机 Java 进程无法写用户目录，缓存放 zt-stack 内 |
-| `ANDROID_USER_HOME` | `<zt-stack>/.build/.android-home` | AGP 用户目录，debug.keystore 在这里 |
-| `TMP_ROOT` | `<zt-stack>/.build/.tmp` | 同上，JVM 临时目录 |
-| `BUILD_ROOT` | `<zt-stack>/.build` | 以上四个目录的根；`<zt-stack>` 由脚本位置推导，换机器无需改 |
+| `CMAKE_DIR` | `<zerotier-planet>/.build/.toolchain/cmake-3.22.1` | core 的 `cmake_minimum_required(3.2)` 在 CMake 4 上会被拒绝，必须 3.22.x |
+| `GRADLE_USER_HOME` | `<zerotier-planet>/.build/.gradle-home` | 本机 Java 进程无法写用户目录，缓存放 zerotier-planet 内 |
+| `ANDROID_USER_HOME` | `<zerotier-planet>/.build/.android-home` | AGP 用户目录，debug.keystore 在这里 |
+| `TMP_ROOT` | `<zerotier-planet>/.build/.tmp` | 同上，JVM 临时目录 |
+| `BUILD_ROOT` | `<zerotier-planet>/.build` | 以上四个目录的根；`<zerotier-planet>` 由脚本位置推导，换机器无需改 |
 
-> **所有构建期缓存/临时目录都在 `zt-stack/.build/` 下**（见上表的默认值），构建过程不向工作区根目录
-> （`D:/Projects/zerotier/`）写任何东西；`zt-stack/.gitignore` 已忽略 `.build/`。
+> **所有构建期缓存/临时目录都在 `zerotier-planet/.build/` 下**（见上表的默认值），构建过程不向工作区根目录
+> （`D:/Projects/zerotier/`）写任何东西；`zerotier-planet/.gitignore` 已忽略 `.build/`。
 
 ### 3.2 版本矩阵
 
@@ -319,7 +319,7 @@ ZeroTierOneService.onStartCommand                (app/src/main/java/.../service/
 
 - core 1.12.2 的 planet 是「状态对象」：`Topology::Topology` 调用
   `stateObjectGet(ZT_STATE_OBJECT_PLANET, ...)`（core 源码 `node/Topology.cpp:37`，对照用源码克隆在
-  `zt-stack/.build/.core-src/`，非构建依赖，可删）。
+  `zerotier-planet/.build/.core-src/`，非构建依赖，可删）。
 - JNI 把该状态对象映射成文件名 `"planet"`
   （`externals/core/java/jni/com_zerotierone_sdk_Node.cpp:348`）。
 - 应用侧 `DataStore.onDataStoreGet("planet")` 在 `planet_use_custom = true` 时把名字重定向到
@@ -381,7 +381,7 @@ notifyPlanetSyncResult(PlanetSyncManager.syncBeforeStart(this));  // 返回 null
 ### 8.1 客户端端到端验证（可复跑，不需要设备）
 
 ```bash
-bash zt-stack/tests/zerotierfix/run-planet-sync-test.sh D:/Projects/zerotier/ZeroTier-Android
+bash zerotier-planet/tests/zerotierfix/run-planet-sync-test.sh D:/Projects/zerotier/ZeroTier-Android
 ```
 
 它用 JDK17 编译 **App 里真实的生产代码**（`Constants.java` + `PlanetSyncer.java`，两者都不 import Android），
@@ -401,7 +401,7 @@ PASS=28 FAIL=0
 
 | 项 | 值 |
 | --- | --- |
-| APK（当前交付） | `D:\Projects\zerotier\zt-stack\artifacts\ZeroTier-1.16.2-debug.apk`（core 1.16.2，包名 `com.vnimy.zerotier`） |
+| APK（当前交付） | `D:\Projects\zerotier\zerotier-planet\artifacts\ZeroTier-1.16.2-debug.apk`（core 1.16.2，包名 `com.vnimy.zerotier`） |
 | 大小 | 23,909,378 字节（22.80 MiB） |
 | SHA256 | `4e754f3f4883edda651bead51f2d98340214908a64a5eaeffd8a1b4e7f1214df`（2.0.3，含 0003~0013 + 快捷设置磁贴 + 长按打开 App + 包名迁移 + 扫码添加网络 + 官方橙色主题 + 磁贴即时刷新，versionCode 21 / 2.0.3；旧包名 1.0.13 为 `e03413a8…`，阶段7 为 `3a55ad11…`，阶段6 为 `37803830…`，阶段5 为 `e02afc18…`，阶段4 为 `7068be7d…`，阶段3 为 `34876890…`，阶段2 为 `30bc5959…`） |
 | APK（旧包名回退） | `artifacts\ZerotierFix-1.16.2-debug.apk`（1.0.13 / versionCode 17，包名 `net.kaaass.zerotierfix`） |
@@ -460,6 +460,6 @@ PASS=28 FAIL=0
 7. **上游软链接被替换**：上游用软链接把 `core/src/main/java` 指向 `externals/core/java/src`，
    Windows 检出会把它落成普通文本文件（构建必然失败），补丁改为显式 `java.srcDirs`。
    上游若重构该布局，需要同步调整。
-8. **构建环境敏感**：JVM 需要可写的 `java.io.tmpdir`/`user.home`（本机只能用 zt-stack 内的路径），
+8. **构建环境敏感**：JVM 需要可写的 `java.io.tmpdir`/`user.home`（本机只能用 zerotier-planet 内的路径），
    NDK 依赖 `ndk.dir`（已废弃 API），core 的 CMake 最低版本 3.2 与 CMake 4 不兼容。
    换机器时按 3.1 的变量表覆盖即可。

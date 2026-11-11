@@ -1,5 +1,5 @@
 #!/bin/bash
-# Single-container acceptance run for zt-stack/planet-node.
+# Single-container acceptance run for the zerotier-planet image.
 #
 #   ./verify.sh            # build must already exist (./build.sh)
 #
@@ -14,7 +14,7 @@ IMAGE="${IMAGE:-ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2}"
 NAME="${NAME:-zt-planet-verify}"
 VOL="${VOL:-zt-planet-verify-data}"
 # host-side mappings (inside the container it is always 3000 and 9993). These are
-# deliberately not 3000/9994 so the script can run next to a live zt-stack compose.
+# deliberately not 3000/9994 so the script can run next to a live zerotier-planet compose.
 FILES_PORT="${FILES_PORT:-3920}"
 API_PORT="${API_PORT:-13920}"
 DOWNLOAD_TOKEN="${DOWNLOAD_TOKEN:-verify-token-abc123}"

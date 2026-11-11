@@ -1,4 +1,4 @@
-# zt-stack：自建 ZeroTier 行星节点 + 控制面板
+# zerotier-planet：自建 ZeroTier 行星节点 + 控制面板
 
 把自己的一台服务器变成 ZeroTier 的"行星"根节点（planet），并在同一个容器里跑起
 controller，配一个 ZTNet Web 面板管理网络与成员。客户端装上你的 planet 之后，
@@ -23,7 +23,7 @@ controller，配一个 ZTNet Web 面板管理网络与成员。客户端装上�
     │ UDP/TCP 9994  │ TCP 3000（planet 下载）      │ TCP 3001（面板）
     v               v                             v
 ┌────────────────────────────────────────────────────────┐
-│ docker compose 项目 zt-stack（bridge 网络 172.28.0.0/24）│
+│ docker compose 项目 zerotier-planet（bridge 网络 172.28.0.0/24）│
 │                                                        │
 │  zerotier ── planet-node:1.16.2 ──┐                    │
 │   :9993/tcp+udp  控制 API/controller│  ← 同一个进程     │
@@ -72,7 +72,7 @@ dist 里的 tar 只是服务器出不了外网时的离线备选。
 ### 2.2 三步起栈
 
 ```bash
-cd zt-stack
+cd zerotier-planet
 ./scripts/deploy.sh -i <你的公网IPv4>
 ```
 
@@ -88,7 +88,7 @@ deploy.sh 做这些事（全部幂等，可以反复跑）：
 预期输出（结尾几行）：
 
 ```
-================ zt-stack 部署结果 ================
+================ zerotier-planet 部署结果 ================
   公网端点        : 203.0.113.10:9994 (tcp+udp)
   ZTNet 面板      : http://203.0.113.10:3001
   planet 下载     : http://203.0.113.10:3000/planet?token=<32位十六进制>
@@ -257,7 +257,7 @@ sudo zerotier-cli peers | grep PLANET     # 确认根节点已经是你的
 ## 9. 目录结构
 
 ```
-zt-stack/
+zerotier-planet/
 ├── README.md                  本文
 ├── compose/
 │   ├── docker-compose.yml     zerotier + postgres + ztnet（+ tls profile 的 caddy）
@@ -313,9 +313,9 @@ $ ./scripts/deploy.sh -i 192.168.2.145
 [ ok ] 生成 NEXTAUTH_SECRET / POSTGRES_PASSWORD / DOWNLOAD_TOKEN
 [ ok ] compose 配置有效
 [ ok ] 容器已启动
-[ ok ] zt-stack-postgres healthy
-[ ok ] zt-stack-zerotier healthy
-[ ok ] zt-stack-ztnet healthy
+[ ok ] zerotier-planet-postgres healthy
+[ ok ] zerotier-planet-zerotier healthy
+[ ok ] zerotier-planet-ztnet healthy
   ZTNet 面板      : http://192.168.2.145:3001
   planet 下载     : http://192.168.2.145:3000/planet?token=<token>
 [ ok ] 部署完成
@@ -354,7 +354,7 @@ DELETE /controller/network/ee3a223b88612348 -> HTTP 200
 另外用浏览器在面板里点"创建网络"（ZTNet → 本地控制器 → 创建网络）也验证过一遍：
 
 ```
-$ curl -s -H "X-ZT1-Auth: $(docker exec zt-stack-zerotier cat /var/lib/zerotier-one/authtoken.secret)" \
+$ curl -s -H "X-ZT1-Auth: $(docker exec zerotier-planet-zerotier cat /var/lib/zerotier-one/authtoken.secret)" \
        http://127.0.0.1:9994/controller/network
 ["3417a77156d6fe78"]
 # 读回：{'id': '3417a77156d6fe78', 'name': 'technical-cephalopod', 'private': True, 'mtu': 2800}

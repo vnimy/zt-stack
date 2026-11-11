@@ -1,4 +1,4 @@
-# 用外部 Nginx 反代 zt-stack
+# 用外部 Nginx 反代 zerotier-planet
 
 这套栈对外只暴露三类东西，反代只处理其中两类（HTTP 的），第三类是 ZeroTier 自己的协议，**不能**走 HTTP 反代：
 
@@ -36,7 +36,7 @@ docker compose up -d ztnet
 与镜像自带的 Caddyfile 规则一致：`/` 走面板，`/planet` 等走文件服务。
 
 ```nginx
-# /etc/nginx/conf.d/zt-stack.conf
+# /etc/nginx/conf.d/zerotier-planet.conf
 upstream zt_panel { server 127.0.0.1:3001; keepalive 16; }
 upstream zt_files { server 127.0.0.1:3000; keepalive 16; }
 
@@ -102,7 +102,7 @@ server {
 services:
   nginx:
     image: nginx:alpine
-    networks: [ztnet-net]        # 与 zt-stack 同一个网络（默认名 zt-stack_ztnet-net）
+    networks: [ztnet-net]        # 与 zerotier-planet 同一个网络（默认名 zerotier-planet_ztnet-net）
     # ...
 ```
 ```nginx

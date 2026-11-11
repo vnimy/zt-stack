@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# zt-stack 脚本公共函数：路径解析、.env 读写、compose 包装、日志。
+# zerotier-planet 脚本公共函数：路径解析、.env 读写、compose 包装、日志。
 # 只被同目录下的 deploy.sh / stack-status.sh / e2e-verify.sh source，不单独执行。
 # shellcheck shell=bash
 
@@ -18,7 +18,7 @@ else
 	C_RED=''; C_GREEN=''; C_YELLOW=''; C_BLUE=''; C_OFF=''
 fi
 
-log()  { printf '%s[zt-stack]%s %s\n' "$C_BLUE" "$C_OFF" "$*"; }
+log()  { printf '%s[zerotier-planet]%s %s\n' "$C_BLUE" "$C_OFF" "$*"; }
 ok()   { printf '%s[ ok ]%s %s\n' "$C_GREEN" "$C_OFF" "$*"; }
 warn() { printf '%s[warn]%s %s\n' "$C_YELLOW" "$C_OFF" "$*" >&2; }
 die()  { printf '%s[fail]%s %s\n' "$C_RED" "$C_OFF" "$*" >&2; exit 1; }

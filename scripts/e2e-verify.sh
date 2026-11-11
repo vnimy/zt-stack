@@ -52,7 +52,7 @@ step() { printf '\n==== %s ====\n' "$*"; }
 # ---------------------------------------------------------------- 控制器 API（仅 stack 模式）
 if [ "$MODE_STACK" -eq 1 ]; then
 CTRL="http://127.0.0.1:${ZT_PORT:-9994}"
-TOKEN="$(docker exec zt-stack-zerotier cat /var/lib/zerotier-one/authtoken.secret 2>/dev/null || true)"
+TOKEN="$(docker exec zerotier-planet-zerotier cat /var/lib/zerotier-one/authtoken.secret 2>/dev/null || true)"
 [ -n "$TOKEN" ] || die "读不到 authtoken.secret：栈没起来？"
 
 step "控制器 /status"
@@ -133,7 +133,7 @@ run_client() { # $1 = planet-url, $2 = token, $3 = planet sha256, $4 = network i
 if [ "$MODE_STACK" -eq 1 ]; then
 	step "A. 用运行中的栈做端到端（planet 端点 ${PUBLIC_IPV4:-?}:${ZT_PORT:-9994}）"
 	[ -n "${PUBLIC_IPV4:-}" ] || die ".env 里没有 PUBLIC_IPV4"
-	SERVER_SHA="$(docker exec zt-stack-zerotier sha256sum /var/lib/zerotier-one/planet | awk '{print $1}')"
+	SERVER_SHA="$(docker exec zerotier-planet-zerotier sha256sum /var/lib/zerotier-one/planet | awk '{print $1}')"
 	DL_URL="http://${PUBLIC_IPV4}:${FILES_PORT:-3000}/planet"
 	# 客户端容器里用公网地址下载，顺带验证发布端口
 	NET_ARG=()

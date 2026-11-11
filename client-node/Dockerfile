@@ -4,13 +4,13 @@
 # (same registry, same version), plus curl and this entrypoint. Nothing from
 # the controller is included.
 #
-#   docker build -t zt-stack/zerotier-client:1.16.2 .
+#   docker build -t zerotier-planet/zerotier-client:1.16.2 .
 #   docker run -d --name zt-client \
 #     --cap-add NET_ADMIN --device /dev/net/tun \
 #     -e PLANET_URL=https://zt.vnimy.com/planet \
 #     -e NETWORK_ID=e5c9db4519e04fa5 \
 #     -v zt-client-data:/var/lib/zerotier-one \
-#     zt-stack/zerotier-client:1.16.2
+#     zerotier-planet/zerotier-client:1.16.2
 
 ARG ZT_IMAGE=ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2
 ARG BASE=ubuntu:24.04

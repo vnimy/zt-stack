@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# zt-stack 服务器侧安装脚本：只要 Docker + 这个目录，不装源码、不编译。
+# zerotier-planet 服务器侧安装脚本：只要 Docker + 这个目录，不装源码、不编译。
 #
 #   docker login ccr.ccs.tencentyun.com           # 默认镜像是私有仓库，服务器先登录
 #   ./install.sh -i 203.0.113.10                  # 主路径：从 ccr 拉镜像起栈
@@ -27,7 +27,7 @@ if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
 else
 	C_RED=''; C_GREEN=''; C_YELLOW=''; C_BLUE=''; C_OFF=''
 fi
-log()  { printf '%s[zt-stack]%s %s\n' "$C_BLUE" "$C_OFF" "$*"; }
+log()  { printf '%s[zerotier-planet]%s %s\n' "$C_BLUE" "$C_OFF" "$*"; }
 ok()   { printf '%s[ ok ]%s %s\n' "$C_GREEN" "$C_OFF" "$*"; }
 warn() { printf '%s[warn]%s %s\n' "$C_YELLOW" "$C_OFF" "$*" >&2; }
 die()  { printf '%s[fail]%s %s\n' "$C_RED" "$C_OFF" "$*" >&2; exit 1; }
@@ -342,16 +342,16 @@ fi
 # ------------------------------------------------------------------ 起栈
 HEALTH_FAIL=0
 if [ "$UPGRADE" -eq 1 ]; then
-	if docker inspect zt-stack-zerotier >/dev/null 2>&1; then
+	if docker inspect zerotier-planet-zerotier >/dev/null 2>&1; then
 		log "--upgrade：只重建 zerotier 容器（postgres/ztnet 与数据卷不动）"
 		run_compose up -d --no-deps --force-recreate zerotier || die "重建 zerotier 容器失败，见上面的输出"
 		if [ "$DO_WAIT" -eq 1 ]; then
-			if wait_healthy zt-stack-zerotier "$WAIT_SECONDS"; then ok "zt-stack-zerotier healthy"; else HEALTH_FAIL=1; fi
+			if wait_healthy zerotier-planet-zerotier "$WAIT_SECONDS"; then ok "zerotier-planet-zerotier healthy"; else HEALTH_FAIL=1; fi
 		fi
 		env_set REGENERATE_WORLD 0
 		UPGRADE_ONLY=1
 	else
-		warn "栈还没装过（找不到 zt-stack-zerotier 容器），--upgrade 按首次安装处理"
+		warn "栈还没装过（找不到 zerotier-planet-zerotier 容器），--upgrade 按首次安装处理"
 		UPGRADE=0
 	fi
 fi
@@ -368,7 +368,7 @@ if [ "$UPGRADE_ONLY" -eq 0 ]; then
 		run_compose up -d --no-deps --force-recreate zerotier || warn "强制重建 zerotier 失败，手动执行: docker compose up -d --no-deps --force-recreate zerotier"
 	fi
 	if [ "$DO_WAIT" -eq 1 ]; then
-		for svc in zt-stack-postgres zt-stack-zerotier zt-stack-ztnet; do
+		for svc in zerotier-planet-postgres zerotier-planet-zerotier zerotier-planet-ztnet; do
 			log "等待 $svc healthy（最多 ${WAIT_SECONDS}s）"
 			if wait_healthy "$svc" "$WAIT_SECONDS"; then ok "$svc healthy"; else HEALTH_FAIL=1; fi
 		done
@@ -390,7 +390,7 @@ PLANET_QS=""; [ -n "$DOWNLOAD_TOKEN" ] && PLANET_QS="?token=$DOWNLOAD_TOKEN"
 PLANET_URL="http://$PUBLIC_IPV4:$FILES_PORT/planet"
 
 echo
-echo "================ zt-stack 安装结果 ================"
+echo "================ zerotier-planet 安装结果 ================"
 printf '  公网端点        : %s:%s (tcp+udp)\n' "$PUBLIC_IPV4" "$ZT_PORT"
 [ -n "$PUBLIC_IPV6" ] && printf '  IPv6 端点       : [%s]:%s\n' "$PUBLIC_IPV6" "$ZT_PORT"
 printf '  镜像            : %s\n' "$IMAGE"

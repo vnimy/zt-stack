@@ -7,7 +7,7 @@
 ## 快速开始
 
 ```bash
-cd zt-stack/client-node
+cd zerotier-planet/client-node
 # 从已发布的镜像直接跑（推荐）
 docker compose up -d
 

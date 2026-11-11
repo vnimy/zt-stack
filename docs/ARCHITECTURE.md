@@ -1,4 +1,4 @@
-# 架构说明（zt-stack）
+# 架构说明（zerotier-planet）
 
 自建 ZeroTier 行星（根）节点 + 控制面板的组件关系、端口、数据流，以及为什么单节点、
 和官方 planet 的差异与限制。所有涉及 ZTNet 行为的结论都标了源码位置，可自行复核。
@@ -14,7 +14,7 @@
         │  UDP/TCP 9994   │  TCP 3000          TCP 3000  │
         v                 v                    v          │
  ┌──────────────────────────────────────────────────────┐ │
- │ docker compose 项目 zt-stack（一个 bridge 网络）      │ │
+ │ docker compose 项目 zerotier-planet（一个 bridge 网络）      │ │
  │                                                      │ │
  │  ┌────────────────────────────┐   ┌───────────────┐  │ │
  │  │ zerotier  (planet-node)    │   │ ztnet         │  │ │

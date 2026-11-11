@@ -82,7 +82,7 @@ fi
 
 if [ ! -f "$STACK_DIR/compose/docker-compose.yml" ] || [ ! -f "$STACK_DIR/compose/.env.example" ] \
 	|| [ ! -f "$STACK_DIR/compose/Caddyfile" ]; then
-	die "缺少 compose/ 下的 docker-compose.yml、.env.example 或 Caddyfile（本脚本要在 zt-stack 仓库里跑）"
+	die "缺少 compose/ 下的 docker-compose.yml、.env.example 或 Caddyfile（本脚本要在 zerotier-planet 仓库里跑）"
 fi
 [ -f "$SCRIPT_DIR/install.sh" ]     || die "缺少 release/install.sh"
 [ -f "$SCRIPT_DIR/README-部署.md" ] || die "缺少 release/README-部署.md"

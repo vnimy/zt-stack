@@ -1,13 +1,13 @@
-# 运维手册（zt-stack）
+# 运维手册（zerotier-planet）
 
 面向已经把栈跑起来的运维人员：日常命令、备份恢复、升级、改 IP、日志、重置。
-所有命令都在 **栈目录** （`zt-stack/`）下执行；`S=${...}` 这类写法不是必需的，
+所有命令都在 **栈目录** （`zerotier-planet/`）下执行；`S=${...}` 这类写法不是必需的，
 它们是给 shell 复用的变量。
 
 栈目录结构：
 
 ```
-zt-stack/
+zerotier-planet/
 ├── compose/            docker-compose.yml / .env / .env.example / Caddyfile
 ├── scripts/            deploy.sh / stack-status.sh / e2e-verify.sh / lib.sh
 ├── docs/               OPERATIONS.md（本文）/ ARCHITECTURE.md
@@ -20,7 +20,7 @@ zt-stack/
 ## 0. 日常命令
 
 ```bash
-cd zt-stack/compose
+cd zerotier-planet/compose
 
 docker compose ps                         # 服务状态
 docker compose logs -f --tail=100 zerotier # 根节点日志（planet 生成、controller、peer）
@@ -48,14 +48,14 @@ docker compose --profile tls up -d         # 带 Caddy 起来
 
 ```bash
 mkdir -p ~/zt-backup
-docker run --rm -v zt-stack_planet-data:/data:ro -v ~/zt-backup:/backup alpine   tar czf /backup/planet-data-$(date +%F-%H%M).tar.gz -C /data .
+docker run --rm -v zerotier-planet_planet-data:/data:ro -v ~/zt-backup:/backup alpine   tar czf /backup/planet-data-$(date +%F-%H%M).tar.gz -C /data .
 ```
 
-卷名以 `docker volume ls` 为准（compose 项目名是 `zt-stack`，所以是
-`zt-stack_planet-data`）。镜像可以用任意带 `tar` 的镜像；实在没有再 `docker run --rm -it` 进
+卷名以 `docker volume ls` 为准（compose 项目名是 `zerotier-planet`，所以是
+`zerotier-planet_planet-data`）。镜像可以用任意带 `tar` 的镜像；实在没有再 `docker run --rm -it` 进
 `planet-node` 镜像手动打包。
 
-> **先确认挂载方式**：`docker inspect zt-stack-zerotier --format '{{json .Mounts}}'`。
+> **先确认挂载方式**：`docker inspect zerotier-planet-zerotier --format '{{json .Mounts}}'`。
 > 若 `Type` 是 `bind`（现场确有用宿主机目录直接挂的部署，例如
 > `/root/docker/zerotier/planet-data`），要备份的是那个宿主机目录，命令改成
 > `tar czf ~/zt-backup/planet-data-$(date +%F-%H%M).tar.gz -C /root/docker/zerotier/planet-data .`。
@@ -64,7 +64,7 @@ docker run --rm -v zt-stack_planet-data:/data:ro -v ~/zt-backup:/backup alpine  
 更有用的是把它拆开看：
 
 ```bash
-docker run --rm -v zt-stack_planet-data:/data:ro alpine ls -la /data
+docker run --rm -v zerotier-planet_planet-data:/data:ro alpine ls -la /data
 # identity.secret / identity.public / authtoken.secret / planet / local.conf
 # moons.d/*.moon / controller.d/（network/<nwid>.json 与 member/<addr>.json 明文 JSON，所有网络与成员都在这里）
 ```
@@ -72,7 +72,7 @@ docker run --rm -v zt-stack_planet-data:/data:ro alpine ls -la /data
 ### 1.2 备份 PostgreSQL
 
 ```bash
-docker exec zt-stack-postgres pg_dump -U postgres -d ztnet -Fc > ~/zt-backup/ztnet-$(date +%F).dump
+docker exec zerotier-planet-postgres pg_dump -U postgres -d ztnet -Fc > ~/zt-backup/ztnet-$(date +%F).dump
 ```
 
 > `planet-data` 里已经有网络定义，`postgres` 里是 ZTNet 的用户、组织、网络元数据与 API token。
@@ -85,17 +85,17 @@ docker exec zt-stack-postgres pg_dump -U postgres -d ztnet -Fc > ~/zt-backup/ztn
 ### 2.1 恢复 planet-data 到同一台机器
 
 ```bash
-cd zt-stack/compose && docker compose down
-docker volume rm zt-stack_planet-data
-docker volume create zt-stack_planet-data
-docker run --rm -v zt-stack_planet-data:/data -v ~/zt-backup:/backup alpine   tar xzf /backup/planet-data-YYYY-MM-DD-HHMM.tar.gz -C /data
+cd zerotier-planet/compose && docker compose down
+docker volume rm zerotier-planet_planet-data
+docker volume create zerotier-planet_planet-data
+docker run --rm -v zerotier-planet_planet-data:/data -v ~/zt-backup:/backup alpine   tar xzf /backup/planet-data-YYYY-MM-DD-HHMM.tar.gz -C /data
 docker compose up -d
 ```
 
 启动后确认 world id 与备份前一致：
 
 ```bash
-docker exec zt-stack-zerotier mkworld verify /var/lib/zerotier-one/planet | head -3
+docker exec zerotier-planet-zerotier mkworld verify /var/lib/zerotier-one/planet | head -3
 # world_id=...  timestamp=...  signature_valid=true
 ```
 
@@ -103,13 +103,13 @@ docker exec zt-stack-zerotier mkworld verify /var/lib/zerotier-one/planet | head
 
 ```bash
 docker compose stop ztnet
-docker exec -i zt-stack-postgres pg_restore -U postgres -d ztnet --clean --if-exists < ~/zt-backup/ztnet-YYYY-MM-DD.dump
+docker exec -i zerotier-planet-postgres pg_restore -U postgres -d ztnet --clean --if-exists < ~/zt-backup/ztnet-YYYY-MM-DD.dump
 docker compose start ztnet
 ```
 
 ### 2.3 整机迁移（换服务器）
 
-1. 新机器装 docker + compose，把 `zt-stack/` 目录拷过去（**包括 `compose/.env`**）。
+1. 新机器装 docker + compose，把 `zerotier-planet/` 目录拷过去（**包括 `compose/.env`**）。
 2. 按 1.1/1.2 备份 → 按 2.1/2.2 恢复两个卷。
 3. 新机器 IP 若变了：`scripts/deploy.sh -i <新公网IP>`。
    注意这是**改 IP**，会重建 planet（见第 4 节），客户端要重装 planet。
@@ -123,7 +123,7 @@ docker compose start ztnet
 ### 3.1 升级 ZTNet / PostgreSQL（不动 ZeroTier 身份）
 
 ```bash
-cd zt-stack/compose
+cd zerotier-planet/compose
 docker compose pull ztnet postgres
 docker compose up -d
 # 或一条命令：
@@ -139,7 +139,7 @@ ZTNet 启动时会自动跑 `prisma migrate deploy`（见官方 `init-db.sh`）�
 
 ```bash
 # 1) 用 planet-node/ 下的构建脚本产出新 tag，例如 1.16.3
-cd zt-stack/planet-node && ./build.sh 1.16.3
+cd zerotier-planet/planet-node && ./build.sh 1.16.3
 # 2) 改 .env 里的 tag
 cd ../compose && sed -i 's/^PLANET_NODE_TAG=.*/PLANET_NODE_TAG=1.16.3/' .env
 # 3) 只重建根节点，数据卷保留（identity/planet/controller 不变）
@@ -181,7 +181,7 @@ authtoken 的 sha256 不变，ztnet 容器全程 healthy 且未重启。
 换 IP 的标准流程：
 
 ```bash
-cd zt-stack/scripts
+cd zerotier-planet/scripts
 ./deploy.sh -i <新公网IP>
 ```
 
@@ -208,8 +208,8 @@ curl -fsSL "http://<新IP>:3000/planet?token=<DOWNLOAD_TOKEN>" -o planet
 | 面板（含 controller 请求错误） | `docker compose logs -f ztnet` |
 | 数据库 | `docker compose logs -f postgres` |
 | Caddy（证书申请） | `docker compose --profile tls logs -f caddy` |
-| 容器内 zerotier 自身日志 | `docker exec zt-stack-zerotier tail -n 200 /var/log/zerotier-one.log 2>/dev/null || docker compose logs --tail=200 zerotier` |
-| controller 状态 | `TOKEN=$(docker exec zt-stack-zerotier cat /var/lib/zerotier-one/authtoken.secret); curl -s -H "X-ZT1-Auth: $TOKEN" http://127.0.0.1:9994/status | head -c 400` |
+| 容器内 zerotier 自身日志 | `docker exec zerotier-planet-zerotier tail -n 200 /var/log/zerotier-one.log 2>/dev/null || docker compose logs --tail=200 zerotier` |
+| controller 状态 | `TOKEN=$(docker exec zerotier-planet-zerotier cat /var/lib/zerotier-one/authtoken.secret); curl -s -H "X-ZT1-Auth: $TOKEN" http://127.0.0.1:9994/status | head -c 400` |
 
 日志驱动是 json-file，长期运行建议在 `/etc/docker/daemon.json` 里加
 `"log-opts": {"max-size": "20m", "max-file": "5"}`。
@@ -221,7 +221,7 @@ curl -fsSL "http://<新IP>:3000/planet?token=<DOWNLOAD_TOKEN>" -o planet
 ### 6.1 只重建 planet（保留 ZTNet 用户与网络记录）
 
 ```bash
-cd zt-stack/compose
+cd zerotier-planet/compose
 sed -i 's/^FORCE_REGENERATE=.*/FORCE_REGENERATE=1/' .env
 docker compose up -d --force-recreate zerotier
 sed -i 's/^FORCE_REGENERATE=.*/FORCE_REGENERATE=0/' .env
@@ -231,7 +231,7 @@ docker compose restart ztnet      # authtoken 变了，ZTNet 只在启动时读�
 ### 6.2 全清（连数据一起）
 
 ```bash
-cd zt-stack/compose
+cd zerotier-planet/compose
 docker compose down -v            # -v 会删掉 planet-data / postgres-data / caddy 卷
 ../scripts/deploy.sh -i <公网IP>   # 从零重来
 ```
@@ -242,7 +242,7 @@ docker compose down -v            # -v 会删掉 planet-data / postgres-data / c
 ### 6.3 轮换下载 token
 
 ```bash
-cd zt-stack/compose
+cd zerotier-planet/compose
 ../scripts/deploy.sh --download-token          # 生成新 token（不给值就随机生成）
 docker compose up -d zerotier                  # 让文件服务读到新 token
 ../scripts/stack-status.sh                     # 确认 /planet 仍 200、无凭据仍 401
@@ -265,29 +265,29 @@ entrypoint: empty or incomplete data volume, initialising (this creates a NEW no
 **确认**：
 
 ```bash
-docker exec zt-stack-zerotier zerotier-cli info            # 第 3 列是当前 address
-docker exec zt-stack-zerotier ls /var/lib/zerotier-one/controller.d/network/
+docker exec zerotier-planet-zerotier zerotier-cli info            # 第 3 列是当前 address
+docker exec zerotier-planet-zerotier ls /var/lib/zerotier-one/controller.d/network/
 # 网络文件名前 10 位必须等于上面的 address；不相等 → 这个网络不归当前节点管
 ```
 
 **修复**（把身份换回网络数据所属的那个；network id、成员授权、固定 IP 都不用动）：
 
 ```bash
-cd zt-stack/compose
-# 1) 先备份（bind mount 部署：本节所有 -v zt-stack_planet-data:/data 都换成宿主机目录，见 1.1）
-docker run --rm -v zt-stack_planet-data:/data:ro -v ~/zt-backup:/backup alpine \
+cd zerotier-planet/compose
+# 1) 先备份（bind mount 部署：本节所有 -v zerotier-planet_planet-data:/data 都换成宿主机目录，见 1.1）
+docker run --rm -v zerotier-planet_planet-data:/data:ro -v ~/zt-backup:/backup alpine \
   tar czf /backup/planet-data-before-identity-restore.tar.gz -C /data .
 
 # 2) 停面板与根节点（面板读写同一个卷）
 docker compose stop ztnet zerotier
 
 # 3) 把旧身份放回卷里（secret 与 public 必须成对，权限 600/644）
-docker run --rm -v zt-stack_planet-data:/data -v /path/to/old-identity:/old:ro alpine sh -c '
+docker run --rm -v zerotier-planet_planet-data:/data -v /path/to/old-identity:/old:ro alpine sh -c '
   cp /old/identity.secret /old/identity.public /data/ &&
   chmod 600 /data/identity.secret && chmod 644 /data/identity.public'
 
 # 4) 删掉属于上一个身份的 moon 定义（不删 entrypoint 会拒绝启动，见下）
-docker run --rm -v zt-stack_planet-data:/data alpine sh -c \
+docker run --rm -v zerotier-planet_planet-data:/data alpine sh -c \
   'rm -f /data/moon.json /data/moons.d/*.moon'
 
 # 5) 用恢复的身份重建 planet
@@ -298,8 +298,8 @@ docker compose up -d --no-deps zerotier      # 让容器里的开关也回到 0
 
 # 6) 起面板并核对
 docker compose start ztnet
-docker exec zt-stack-zerotier zerotier-cli info
-docker exec zt-stack-zerotier mkworld verify /var/lib/zerotier-one/planet | head -6
+docker exec zerotier-planet-zerotier zerotier-cli info
+docker exec zerotier-planet-zerotier mkworld verify /var/lib/zerotier-one/planet | head -6
 ```
 
 预期：`info` 的 address 等于 network id 前 10 位；planet 的 `root[0].identity` 与之一致、
@@ -408,7 +408,7 @@ curl -sI https://zt.vnimy.com/app/zerotier.apk | head -1
 | 资产 | 位置 / 标识 | 校验值 |
 |---|---|---|
 | 行星节点镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2` | `sha256:d4f91480ae9e973c9d5f8b349e34eb77d0e6fc7bd74772223f4e0584c2b0d336`，180 MB |
-| 本地同名 tag | `zt-stack/planet-node:1.16.2` | 同一 image id `d4f91480ae9e`（历史兼容名） |
+| 本地构建 tag | `ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2` | 同一 image id `d4f91480ae9e` |
 | 客户端镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-client:1.16.2`（`client-node/`，只从行星镜像取二进制） | `sha256:6a94e872946e464bdb361063cbdfd9bc5b112e0c92c4fc0bf1f38156cd0b7ad4`，38,384,335 B |
 | Android 客户端 | 交付 `artifacts/ZeroTier-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务/通知断开 + 路由表/扫码导入 + 网络切换自愈 + 检查更新 + 快捷设置磁贴（长按打开 App）+ 包名迁移 + 扫码添加网络 + 官方橙色主题 + 快捷磁贴即时刷新，versionCode 21 / 2.0.3，包名 `com.vnimy.zerotier`）<br>旧包名回退 `artifacts/ZerotierFix-1.16.2-debug.apk`（1.0.13）<br>阶段1 回退 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 2.0.3：23,909,378 B，`sha256:4e754f3f4883edda651bead51f2d98340214908a64a5eaeffd8a1b4e7f1214df`<br>1.0.13：23,906,940 B，`sha256:e03413a83b8593b3dc6d04fa48a07566a725fbcbb31548c5210d9a639dee0796`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 离线发布包 | `release/dist/`（由 `release/build-release.sh` 生成，**不入库**） | tar `planet-node-1.16.2.tar.gz` 44,009,044 B，`sha256:6da744fc6f665943b557229cafe2fcf807ae35603574ad262000581a164664c4` |
@@ -422,8 +422,8 @@ curl -sI https://zt.vnimy.com/app/zerotier.apk | head -1
 
 | 项 | 线上实际值 |
 |---|---|
-| 服务器 / 目录 | `81.69.244.33`（`VM-0-17-ubuntu`），`/root/docker/zerotier/`，compose 项目名 `zt-stack` |
-| 数据卷 | **bind mount** `./planet-data:/var/lib/zerotier-one`；**不是**命名卷 `zt-stack_planet-data`（早期实验残留，identity `e3414c140d`，与线上无关） |
+| 服务器 / 目录 | `81.69.244.33`（`VM-0-17-ubuntu`），`/root/docker/zerotier/`，compose 项目名 `zerotier-planet` |
+| 数据卷 | **bind mount** `./planet-data:/var/lib/zerotier-one`；**不是**命名卷 `zerotier-planet_planet-data`（早期实验残留，identity `e3414c140d`，与线上无关） |
 | 下载服务 | `./planet-files.py` 单独 bind mount 到 `/usr/local/bin/planet-files.py:ro`，改脚本不用重编镜像；`version.json` 与 `zerotier.apk` 直接放 `planet-data/`（见 6.6） |
 | 二维码 | `./qrcodegen.py`（vendored，Nayuki MIT）挂到 `/usr/local/bin/qrcodegen.py:ro`；下载页 `https://zt.vnimy.com/dl/`，二维码 `https://zt.vnimy.com/qr.svg`（见 6.7） |
 | 外部反代 | 容器 `nginx`（镜像 `nginx-with-auth`），配置在宿主机 `/root/docker/nginx/conf.d/zerotier.conf`，示例见 `docs/NGINX-反代.md` |
@@ -469,11 +469,11 @@ curl -sI https://zt.vnimy.com/app/zerotier.apk | head -1
 ### 10.1 复算命令（别只信文档）
 
 ```bash
-bash zt-stack/planet-node/verify.sh                 # 43 条：planet 生成、controller、下载、幂等、换 IP 保身份
-bash zt-stack/scripts/e2e-verify.sh                 # 端到端：客户端换 planet → peers 出现 PLANET → 网络 OK
-bash zt-stack/tests/zerotierfix/run-planet-sync-test.sh D:/Projects/zerotier/ZeroTier-Android   # 28 条
-bash zt-stack/clients/test/test-download.sh         # 21 条（Linux/Windows 脚本的下载-校验-替换）
-bash zt-stack/release/build-release.sh && (cd zt-stack/release/dist && sha256sum -c SHA256SUMS)
+bash zerotier-planet/planet-node/verify.sh                 # 43 条：planet 生成、controller、下载、幂等、换 IP 保身份
+bash zerotier-planet/scripts/e2e-verify.sh                 # 端到端：客户端换 planet → peers 出现 PLANET → 网络 OK
+bash zerotier-planet/tests/zerotierfix/run-planet-sync-test.sh D:/Projects/zerotier/ZeroTier-Android   # 28 条
+bash zerotier-planet/clients/test/test-download.sh         # 21 条（Linux/Windows 脚本的下载-校验-替换）
+bash zerotier-planet/release/build-release.sh && (cd zerotier-planet/release/dist && sha256sum -c SHA256SUMS)
 ```
 
 注意：`verify.sh` 默认宿主端口 3920/13920，避免与运行中的栈抢 3000/9994。

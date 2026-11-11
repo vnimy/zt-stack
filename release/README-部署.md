@@ -23,7 +23,7 @@
 服务器直接 `docker pull`，**不用拷镜像文件**。先登录一次（账号找管理员要）：
 
 ```bash
-cd /opt/zt-stack
+cd /opt/zerotier-planet
 docker login ccr.ccs.tencentyun.com     # 首次安装必做：私有仓库，没登录拉取会被 401 拒绝
 sha256sum -c SHA256SUMS                 # 校验发布包完整性，每行都应该是 OK
 ./install.sh -i <服务器公网IPv4>         # 拉镜像 + 起栈 + 等 healthy
@@ -55,7 +55,7 @@ sha256sum -c SHA256SUMS                 # 校验发布包完整性，每行都�
 然后跑**同一条命令**——`install.sh` 在 `docker pull` 失败后会自己退回 `docker load`：
 
 ```bash
-cd /opt/zt-stack
+cd /opt/zerotier-planet
 ./install.sh -i <服务器公网IPv4>
 ```
 
@@ -99,17 +99,17 @@ UDP 9994 不放行，客户端会一直停在「连不上根节点」。
 两个数据卷就是全部状态（identity、planet、controller 数据、面板数据库）。备份成 tar：
 
 ```bash
-cd /opt/zt-stack
-docker run --rm -v zt-stack_planet-data:/data -v "$PWD":/backup \
+cd /opt/zerotier-planet
+docker run --rm -v zerotier-planet_planet-data:/data -v "$PWD":/backup \
   --entrypoint tar ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2 czf /backup/planet-data-$(date +%Y%m%d).tgz -C /data .
-docker run --rm -v zt-stack_postgres-data:/data -v "$PWD":/backup \
+docker run --rm -v zerotier-planet_postgres-data:/data -v "$PWD":/backup \
   --entrypoint tar ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2 czf /backup/postgres-data-$(date +%Y%m%d).tgz -C /data .
 ```
 
 恢复前先 `docker compose down`，然后用同样的容器把 tar 解回卷里：
 
 ```bash
-docker run --rm -v zt-stack_planet-data:/data -v "$PWD":/backup \
+docker run --rm -v zerotier-planet_planet-data:/data -v "$PWD":/backup \
   --entrypoint tar ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2 xzf /backup/planet-data-<日期>.tgz -C /data
 docker compose up -d
 ```
@@ -142,7 +142,7 @@ planet 里的端点变了，所以**所有成员要重新装一次 planet**（An
 | 面板能开但登录报 403 | `.env` 的 `NEXTAUTH_URL` 与浏览器地址不一致（IP/端口/协议），改对后重跑 |
 | 客户端 `/planet` 返回 401 | 服务端启用了 `DOWNLOAD_TOKEN`，客户端没带或带错 token |
 | 客户端能下 planet 但连不上根节点 | 9994/udp 没放行；或 `--ip` 填了内网地址 |
-| `有服务没到 healthy` | `docker compose ps`、`docker logs zt-stack-ztnet` 看具体原因；数据库口令改了要同步改 `.env` |
+| `有服务没到 healthy` | `docker compose ps`、`docker logs zerotier-planet-ztnet` 看具体原因；数据库口令改了要同步改 `.env` |
 
 ## 7. 参数速查
 

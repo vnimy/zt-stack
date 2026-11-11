@@ -248,7 +248,7 @@ fi
 # --------------------------------------------------------------- 等健康
 HEALTH_FAIL=0
 if [ "$DO_WAIT" -eq 1 ]; then
-	for svc in zt-stack-postgres zt-stack-zerotier zt-stack-ztnet; do
+	for svc in zerotier-planet-postgres zerotier-planet-zerotier zerotier-planet-ztnet; do
 		log "等待 $svc healthy（最多 ${WAIT_SECONDS}s）"
 		if wait_healthy "$svc" "$WAIT_SECONDS"; then ok "$svc healthy"; else HEALTH_FAIL=1; fi
 	done
@@ -266,7 +266,7 @@ fi
 if [ "$REGEN_KIND" = 'full' ] && [ "$HEALTH_FAIL" -eq 0 ]; then
 	log "identity 已更换：authtoken 随之变化，重启 ztnet 让它重读"
 	compose restart ztnet >/dev/null 2>&1 || warn "docker compose restart ztnet 失败，请手动执行"
-	if wait_healthy zt-stack-ztnet "$WAIT_SECONDS"; then ok "ztnet 已重读 authtoken 并 healthy"; else warn "ztnet 重启后没到 healthy"; HEALTH_FAIL=1; fi
+	if wait_healthy zerotier-planet-ztnet "$WAIT_SECONDS"; then ok "ztnet 已重读 authtoken 并 healthy"; else warn "ztnet 重启后没到 healthy"; HEALTH_FAIL=1; fi
 fi
 
 # --------------------------------------------------------------- 汇报
@@ -276,7 +276,7 @@ PLANET_QS=""
 PANEL_URL="$(env_get NEXTAUTH_URL)"
 
 echo
-echo "================ zt-stack 部署结果 ================"
+echo "================ zerotier-planet 部署结果 ================"
 printf '  公网端点        : %s:%s (tcp+udp)\n' "$PUBLIC_IPV4" "$ZT_PORT"
 [ -n "$PUBLIC_IPV6" ] && printf '  IPv6 端点       : [%s]:%s\n' "$PUBLIC_IPV6" "$ZT_PORT"
 printf '  ZTNet 面板      : %s\n' "$PANEL_URL"

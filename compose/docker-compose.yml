@@ -5,7 +5,7 @@
 # 带 TLS（需要域名解析到本机）：docker compose --profile tls up -d
 #
 # 服务与端口约定见 ../docs/ARCHITECTURE.md，运维流程见 ../docs/OPERATIONS.md。
-name: zt-stack
+name: zerotier-planet
 
 services:
   # ------------------------------------------------------------------
@@ -13,7 +13,7 @@ services:
   # ------------------------------------------------------------------
   zerotier:
     image: ${PLANET_NODE_IMAGE:-ccr.ccs.tencentyun.com/vnimy/zerotier-planet:${PLANET_NODE_TAG:-1.16.2}}
-    container_name: zt-stack-zerotier
+    container_name: zerotier-planet-zerotier
     # ZTNet 默认控制器地址就是 http://zerotier:9993（见 docs/ARCHITECTURE.md），
     # 主机名必须保持 zerotier，改名要在 .env 里同时改 ZT_ADDR。
     hostname: zerotier
@@ -49,7 +49,7 @@ services:
   # ------------------------------------------------------------------
   ztnet:
     image: ${ZTNET_IMAGE:-docker.1panel.live/sinamics/ztnet:latest}
-    container_name: zt-stack-ztnet
+    container_name: zerotier-planet-ztnet
     hostname: ztnet
     working_dir: /app
     restart: unless-stopped
@@ -100,7 +100,7 @@ services:
   # ------------------------------------------------------------------
   postgres:
     image: ${POSTGRES_IMAGE:-docker.1panel.live/library/postgres:15-alpine}
-    container_name: zt-stack-postgres
+    container_name: zerotier-planet-postgres
     hostname: postgres
     restart: unless-stopped
     environment:
@@ -124,7 +124,7 @@ services:
   caddy:
     profiles: ["tls"]
     image: ${CADDY_IMAGE:-docker.1panel.live/library/caddy:2-alpine}
-    container_name: zt-stack-caddy
+    container_name: zerotier-planet-caddy
     restart: unless-stopped
     ports:
       - "80:80/tcp"

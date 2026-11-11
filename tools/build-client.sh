@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # ZeroTier 客户端可复现构建脚本
 #   目标：JDK17 + Gradle 8.7 + AGP 8.6.1 + compileSdk/targetSdk 35 + minSdk 21
-#   产出：app/build/outputs/apk/debug/app-debug.apk，并拷贝到 zt-stack/artifacts/
+#   产出：app/build/outputs/apk/debug/app-debug.apk，并拷贝到 zerotier-planet/artifacts/
 #
-# 所有构建期缓存/临时目录都放在 zt-stack/.build/ 下，不向工作区根目录写任何东西。
+# 所有构建期缓存/临时目录都放在 zerotier-planet/.build/ 下，不向工作区根目录写任何东西。
 #
 # 依赖的本地工具链（可用环境变量覆盖）：
 #   JAVA_HOME         JDK17                默认 D:/Projects/MM678/build-android/tools/jdk-17.0.20.1+1
 #   ANDROID_SDK_ROOT  Android SDK (35)     默认 D:/Projects/MM678/build-android/android-sdk
 #   NDK_DIR           NDK r28c             默认 $ANDROID_SDK_ROOT/ndk/android-ndk-r28c
-#   CMAKE_DIR         CMake 3.22.1         默认 <zt-stack>/.build/.toolchain/cmake-3.22.1
-#   GRADLE_USER_HOME  Gradle 缓存根目录    默认 <zt-stack>/.build/.gradle-home
-#   ANDROID_USER_HOME AGP 用户目录         默认 <zt-stack>/.build/.android-home（含 debug.keystore）
-#   TMP_ROOT          JVM 临时目录         默认 <zt-stack>/.build/.tmp
+#   CMAKE_DIR         CMake 3.22.1         默认 <zerotier-planet>/.build/.toolchain/cmake-3.22.1
+#   GRADLE_USER_HOME  Gradle 缓存根目录    默认 <zerotier-planet>/.build/.gradle-home
+#   ANDROID_USER_HOME AGP 用户目录         默认 <zerotier-planet>/.build/.android-home（含 debug.keystore）
+#   TMP_ROOT          JVM 临时目录         默认 <zerotier-planet>/.build/.tmp
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"

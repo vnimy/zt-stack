@@ -4,7 +4,7 @@
 # as ZeroTierOne.tar.gz. Everything else (mkworld) is vendored next to this file,
 # so the build needs no git clone and no access to GitHub.
 #
-#   docker build -t zt-stack/planet-node:1.16.2 .
+#   docker build -t ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2 .
 ARG BASE=ubuntu:24.04
 
 # ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@ RUN chmod 755 /usr/local/bin/entrypoint.sh /usr/local/bin/planet-files.py /usr/l
  && ln -sf zerotier-one /usr/sbin/zerotier-cli \
  && ln -sf zerotier-one /usr/sbin/zerotier-idtool
 
-# Contract with the compose files (see zt-stack/README): these names and
+# Contract with the compose files (see zerotier-planet/README): these names and
 # defaults are fixed, the container listens on 9993 inside and compose maps it.
 ENV PUBLIC_IPV4="" \
     PUBLIC_IPV6="" \
