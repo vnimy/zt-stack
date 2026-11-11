@@ -10,8 +10,9 @@
 - **阶段3**：修 Android 15（targetSdk 35）强制 edge-to-edge 导致的「标题栏盖住页面顶部」，见 §0.1。
 - **阶段4**：连接时改为前台服务（切后台不再被系统回收）+ 通知栏「断开连接」按钮；移除从未生效的开机自启接收器，见 §0.2。
 - **阶段5**：网络详情展示路由表；设置页支持**扫码导入**行星服务器地址（含 token），见 §0.3。
+- **阶段6**：切换 Wi-Fi / 蜂窝网络后自动重新保护套接字、恢复收包线程，并即时执行「是否允许移动网络」策略，见 §0.4。
 
-> 当前交付 APK 是**阶段5**：`artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务 + 路由表/扫码）。
+> 当前交付 APK 是**阶段6**：`artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务 + 路由表/扫码 + 网络切换自愈）。
 > 阶段1 的 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2）保留作回退。
 
 ---
@@ -88,6 +89,23 @@ targetSdk 35 在 Android 15+ 上强制 edge-to-edge：窗口铺满整屏（含�
 
 ---
 
+## 0.4 阶段6 摘要（网络切换自愈）
+
+手机在 Wi-Fi 与蜂窝网络之间切换时，底层 UDP 套接字与收包线程可能失效，表现是图标还显示「已连接」但网络不通，必须手动断开重连。
+
+| 项 | 变化 |
+|---|---|
+| 网络监听 | `ZeroTierOneService` 用 `ConnectivityManager.registerNetworkCallback` 订阅 `INTERNET + NOT_VPN` 的物理网络集合（`NOT_VPN` 避免把应用自己的 tun 当成物理链路）；`onAvailable`/`onLost` 维护 `Set<Network>` 后统一处理 |
+| 切换处理 | 网络集合变化时：① 只剩蜂窝且设置里未允许移动网络 → 提示并断开（与启动时的策略一致）；② 否则对 `svrSocket` 重新 `protect()`，让它跟随新的默认网络；③ 若收包线程已退出则重新拉起 |
+| 收包线程加固 | `UdpCom.run()` 以前遇到 `SocketException` 会直接结束线程，节点从此收不到任何包；现在会判断套接字是否已关闭，未关闭则记日志、退避 200ms 后继续收包 |
+| 生命周期 | `onStartCommand` 里幂等注册（重复启动不会重复注册），`onDestroy` 里注销并清空网络集合 |
+| 补丁 | `0007-feat-network-change-resilience.patch`（父提交 `2337df3`，可单独 `git am`） |
+| 产物 | 30,119,156 B，sha256 `37803830697d365a2d5a2cd31606605ca4490db2b7b3a04af05e0ae80d062740` |
+
+注意：`android.net.Network` 与本项目模型类 `net.kaaass.zerotierfix.model.Network` 同名，代码里用全限定名 `android.net.Network`，不要加 import。
+
+---
+
 ## 1. 目录内容
 
 ```
@@ -100,6 +118,7 @@ patches/zerotierfix/
 ├── 0005-feat-foreground-service-disconnect.patch
 │                                       阶段4：前台服务 + 通知栏断开按钮，移除空的开机自启
 ├── 0006-feat-routes-and-qr-import.patch 阶段5：网络详情路由表 + 扫码导入行星服务器
+├── 0007-feat-network-change-resilience.patch 阶段6：网络切换自愈（重新保护套接字 + 恢复收包线程）
 ├── build.sh                            可复现构建脚本（生成 local.properties + 构建 + 收产物）
 ├── README.md                           本文件
 └── test/
@@ -351,7 +370,7 @@ PASS=28 FAIL=0
 | --- | --- |
 | APK（当前交付） | `D:\Projects\zerotier\zt-stack\artifacts\ZerotierFix-1.16.2-debug.apk`（core 1.16.2） |
 | 大小 | 30,119,156 字节（28.72 MiB） |
-| SHA256 | `e02afc18bff785629e573b92aba84e6ea6d11f3bb5dd02ea8ce82c314d612637`（阶段5，含 0004+0005+0006；阶段4 为 `7068be7d…`，阶段3 为 `34876890…`，阶段2 为 `30bc5959…`） |
+| SHA256 | `37803830697d365a2d5a2cd31606605ca4490db2b7b3a04af05e0ae80d062740`（阶段6，含 0003~0007；阶段5 为 `e02afc18…`，阶段4 为 `7068be7d…`，阶段3 为 `34876890…`，阶段2 为 `30bc5959…`） |
 | APK（阶段1 回退） | `artifacts\ZerotierFix-1.12.2-debug.apk`（core 1.12.2） |
 | 大小 / SHA256 | 22,736,354 字节 / `e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 内含 | `lib/arm64-v8a/libZeroTierOneJNI.so`（24,197,008 B）、`lib/armeabi-v7a/libZeroTierOneJNI.so`（21,503,892 B）、`classes*.dex` ×12 |
