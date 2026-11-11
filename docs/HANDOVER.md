@@ -14,6 +14,7 @@
 |---|---|---|
 | 行星节点镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2` | `sha256:d4f91480ae9e973c9d5f8b349e34eb77d0e6fc7bd74772223f4e0584c2b0d336`，180 MB |
 | 本地同名 tag | `zt-stack/planet-node:1.16.2` | 同一 image id `d4f91480ae9e`（历史兼容名） |
+| 客户端镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-client:1.16.2`（`client-node/`，仅从行星镜像取二进制） | `sha256:6a94e872946e464bdb361063cbdfd9bc5b112e0c92c4fc0bf1f38156cd0b7ad4`，38,384,335 B |
 | Android 客户端 | 当前交付 `zt-stack/artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + Android 15 edge-to-edge 修复 + 前台服务/通知断开 + 路由表/扫码导入 + 网络切换自愈 + 检查更新，versionCode 15 / 1.0.11）<br>回退 `zt-stack/artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 1.16.2：23,900,797 B，`sha256:3a55ad113197d07d9f38cd425803f58ecfc6545a8078f63daf83726ae2309ea0`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 离线发布包 | `zt-stack/release/dist/`（13 个文件，7 个顶层条目，64 MB） | tar `planet-node-1.16.2.tar.gz` 44,009,044 B，`sha256:6da744fc6f665943b557229cafe2fcf807ae35603574ad262000581a164664c4` |
 | 镜像源码 | `zt-stack/planet-node/`（Dockerfile + entrypoint + vendored mkworld） | 构建基准 = ZeroTierOne tag `1.16.2` = commit `a5807560` |
@@ -52,7 +53,8 @@ zt-stack/
 ├── scripts/              deploy.sh / stack-status.sh / e2e-verify.sh / lib.sh（源码形态）
 ├── release/              镜像优先形态（服务器不装源码）：build-release.sh、install.sh、dist/、client/
 ├── clients/              三平台"填地址装 planet"脚本 + mock 自测
-├── patches/zerotierfix/  Android 两枚补丁 + 构建脚本 + JVM 端到端测试（28 条断言）
+├── client-node/          容器化客户端：给行星 URL 即自动下载 planet、加入网络
+├── patches/zerotierfix/  Android 补丁（0001-0008）+ 构建脚本 + JVM 端到端测试（28 条断言）
 ├── artifacts/            APK 交付物
 ├── docs/                 ARCHITECTURE / OPERATIONS / NGINX-反代 / 本文
 └── .build/               构建缓存与验证脚本（950 MB，可安全删除，gitignored）
@@ -75,6 +77,7 @@ zt-stack/
 | 桌面脚本可用 | Linux `PASS=21`、Windows `PASS=25`（mock 服务真实下载/校验/备份/原子替换） |
 | 纯 compose 可部署 | 无脚本、仅 `docker compose up -d`：三服务 healthy、`/planet` 401→200、面板 200、planet 端点 = `PUBLIC_IPV4:ZT_PORT` |
 | 镜像可分发 | `docker push` 成功（digest 同 §1），`docker login` 后 `docker pull` 成功 |
+| 容器客户端可用 | `client-node` 镜像：按 `PLANET_URL` 下载 planet（257 B、sha 匹配）→ 启动 → `join` → 控制器授权后 `OK 192.168.200.153/24`；`docker restart` 保 identity、不重复 join |
 
 ## 4. 关键设计决策（改之前先读这里）
 
@@ -132,6 +135,7 @@ cd dist && bash install.sh -i <公网IP>      # 有 tar 就 load，没有就 pul
 - **Android**：装 `artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2；老设备可用 `ZerotierFix-1.12.2-debug.apk`）→ 设置 →「行星服务器（自动下载）」填**完整路径到 `/planet`**：`http(s)://<IP>:3000/planet`，token 填下一栏。App 只补协议头，不补路径。
 - **Windows/Linux/macOS**：用 `clients/` 下对应脚本，只给**站点根**：`-ServerUrl http://<IP>:3000` / `--server-url http://<IP>:3000`（+ 可选 token）。脚本自己拼 `/planet`（`BASE="${SERVER_URL%/}"; URL="$BASE/planet"`），再备份旧 planet、原子替换、重启服务。
   - 常见错误：给脚本传 `…/planet` 会变成 `/planet/planet` 而 404；给 Android 只传 `http://IP:3000` 会 404。两者要求相反，注意区分。
+- **容器**：用 `client-node/`（镜像 `ccr.ccs.tencentyun.com/vnimy/zerotier-client:1.16.2`），给 `PLANET_URL` + `NETWORK_ID` 即可自动下载 planet、启动、加入网络；加入后仍需在面板/API 授权一次才会从 `ACCESS_DENIED` 变 `OK`。注意它同样要求**完整 `/planet` 地址**（与 Android 一致，与桌面脚本相反）。
 - **手工**：`curl -fSL "http://<IP>:3000/planet?token=<TOKEN>" -o planet`，放进 `C:\ProgramData\ZeroTier\One\planet` / `/var/lib/zerotier-one/planet` / `/Library/Application Support/ZeroTier/One/planet`；校验：257~276 B、首字节 `0x01`。
 - 兜底：`docker cp zt-stack-zerotier:/var/lib/zerotier-one/planet ./planet`。
 

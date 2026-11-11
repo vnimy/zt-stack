@@ -274,6 +274,7 @@ zt-stack/
 │   └── OPERATIONS.md          备份恢复/升级/改 IP/日志/重置/排障
 ├── planet-node/               行星节点镜像（Dockerfile、entrypoint、文件服务）
 ├── clients/                   各平台 planet 安装脚本
+├── client-node/               容器化客户端（PLANET_URL + NETWORK_ID 自动接入）
 ├── release/                   镜像优先交付形态（服务器不装源码、不编译）
 │   ├── build-release.sh       开发机打包：镜像 tar.gz（离线备选）+ compose 文件 + 客户端 + SHA256SUMS
 │   ├── install.sh             服务器侧安装（默认 docker pull；离线 docker load / --image / --upgrade）

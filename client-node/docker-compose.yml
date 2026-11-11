@@ -1,0 +1,34 @@
+services:
+  zerotier-client:
+    build:
+      context: .
+      args:
+        # 客户端二进制取自行星镜像，保证与服务端同版本
+        ZT_IMAGE: ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2
+    image: ccr.ccs.tencentyun.com/vnimy/zerotier-client:1.16.2
+    container_name: zt-client
+    restart: unless-stopped
+    # ZeroTier 需要创建 tun 设备
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      # 行星服务器：给站点里的 /planet 完整地址（与 Android 客户端一致）
+      PLANET_URL: https://zt.vnimy.com/planet
+      # 下载需要 token 时填这里（下载页 /planet 若开了 DOWNLOAD_TOKEN）
+      PLANET_TOKEN: ""
+      # 可选：校验 planet 的 sha256，防止下到错误内容
+      PLANET_SHA256: ""
+      # 1 = 每次启动都重新下载 planet（换 IP 后自动跟上），0 = 只在本地没有可用 planet 时下载
+      PLANET_UPDATE: "1"
+      # 自动加入的网络 ID，多个用空格或逗号分隔
+      NETWORK_ID: e5c9db4519e04fa5
+      # 状态日志间隔（秒）
+      STATUS_INTERVAL: "60"
+    volumes:
+      # identity 与 planet 都在这里，删卷等于换一个新节点
+      - zt-client-data:/var/lib/zerotier-one
+
+volumes:
+  zt-client-data:
