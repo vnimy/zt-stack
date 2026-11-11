@@ -317,7 +317,7 @@ docker exec zt-stack-zerotier mkworld verify /var/lib/zerotier-one/planet | head
   没有客户端手工 orbit 过旧 moon 时无需额外处理。
 - 不要用 `FORCE_REGENERATE=1` 来“修”它：那只会再造一个新身份，所有 network id 一起失效。
 - 客户端必须重新下载 planet（根身份变了，旧 planet 指向的根已经不存在）：
-  手机在 ZerotierFix 里点“保存并同步”或开自动更新，桌面端重跑 `clients/` 脚本。
+  手机在 ZeroTier 里点“保存并同步”或开自动更新，桌面端重跑 `clients/` 脚本。
 - 旧服务器若还在跑且用的是同一个 identity，**必须先停掉**，否则两台同身份互相冲突。
 - 已在册的成员不需要重新 join，授权与固定 IP 原样生效；**新**连上的设备仍要在面板授权。
 
@@ -325,9 +325,9 @@ docker exec zt-stack-zerotier mkworld verify /var/lib/zerotier-one/planet | head
 
 客户端连接后现在是**前台服务**：状态栏有一条常驻通知（“已连接 · <网络 id>”），切后台或息屏不会被系统回收；通知右侧的「断开连接」按钮等同于在 app 里断开，走同一套清理流程。
 
-- 通知权限被拒时 `startForeground` 会失败并退回普通通知（行为同旧版本），此时服务仍可能被系统回收 —— 去系统设置里给 Zerotier Fix 打开通知权限即可。
+- 通知权限被拒时 `startForeground` 会失败并退回普通通知（行为同旧版本），此时服务仍可能被系统回收 —— 去系统设置里给 ZeroTier 打开通知权限即可。
 - **开机自启不由 app 负责**：旧版的 `BOOT_COMPLETED` 接收器是空实现（只打一行日志，manifest 也没有权限），阶段4 已删除。要开机自动连，用系统能力：
-  设置 → 网络和互联网 → VPN → Zerotier Fix 右侧齿轮 → 打开「始终开启的 VPN」（Always-on VPN）；
+  设置 → 网络和互联网 → VPN → ZeroTier 右侧齿轮 → 打开「始终开启的 VPN」（Always-on VPN）；
   需要更严格时再开「阻止未使用 VPN 的连接」。
 - 国产 ROM（MIUI / EMUI / ColorOS / OriginOS 等）会额外清理后台：把 app 加入「自启动/后台运行」白名单，电池策略设为「不限制」。
 
@@ -338,25 +338,27 @@ docker exec zt-stack-zerotier mkworld verify /var/lib/zerotier-one/planet | head
 ```bash
 cd /root/docker/zerotier
 
-# 1) 放安装包（名字必须是 zerotierfix.apk）
-cp /path/to/ZerotierFix-1.16.2-debug.apk planet-data/zerotierfix.apk
-sha256sum planet-data/zerotierfix.apk     # 记下来，写进清单
+# 1) 放安装包（名字必须是 zerotier.apk）
+cp /path/to/ZeroTier-1.16.2-debug.apk planet-data/zerotier.apk
+sha256sum planet-data/zerotier.apk     # 记下来，写进清单
 
 # 2) 写清单（versionCode 必须大于用户已装版本才会提示）
 cat > planet-data/version.json <<'EOF'
-{"versionCode": 17, "versionName": "1.0.13",
- "url": "https://zt.vnimy.com/app/zerotierfix.apk",
+{"versionCode": 20, "versionName": "2.0.2",
+ "url": "https://zt.vnimy.com/app/zerotier.apk",
  "notes": "这次改了什么，客户端弹窗里会原样显示"}
 EOF
 
 # 3) 自检
 curl -s https://zt.vnimy.com/version.json
-curl -sI https://zt.vnimy.com/app/zerotierfix.apk | head -1
+curl -sI https://zt.vnimy.com/app/zerotier.apk | head -1
 ```
 
 要点：
 
 - `versionCode` 是唯一判据，必须**大于**用户当前装的版本；`versionName` 只用于显示。发版前先改 app 里 `app/build.gradle` 的 `versionCode`/`versionName` 再构建。
+- 2.0 起安装包文件名为 `zerotier.apk`；`planet-files.py` 同时保留 `/app/zerotierfix.apk` 作为旧路径别名，指向同一个文件。
+- 2.0 的包名是 `com.vnimy.zerotier`，与旧版 `net.kaaass.zerotierfix` 不互通；旧版不会覆盖升级，需要卸载旧版后重新安装，并重新添加网络。
 - `url` 写公网地址；客户端只负责用系统浏览器打开它，不下载也不静默安装。
 - 反代（nginx）需要把 `/version.json` 与 `/app/` 两条转给 3000 端口；仓库里的 `docs/NGINX-反代.md` 已包含。漏配时表现为客户端提示「检查更新失败」。
 - 想强制所有客户端都更新时，不要改 `versionCode` 玩花招（App 会一直提示），直接发通知/公告即可。
@@ -365,9 +367,9 @@ curl -sI https://zt.vnimy.com/app/zerotierfix.apk | head -1
 
 `https://zt.vnimy.com/dl/`（或直连 `http://<IP>:3000/`）是同一个下载页，列出 `/planet`、`/moons` 与 Android 客户端，并显示：
 
-- 当前客户端版本与体积 —— 读 `planet-data/version.json` 与 `planet-data/zerotierfix.apk`，没有这两个文件就只显示 planet 部分
+- 当前客户端版本与体积 —— 读 `planet-data/version.json` 与 `planet-data/zerotier.apk`，没有这两个文件就只显示 planet 部分
 - planet 的二维码（`/qr.svg`），手机「设置 → 行星服务器 → 扫描二维码导入」直接扫，扫到的就是页面下方印的 `https://<域名>/planet`
-- `/qr.svg?path=/app/zerotierfix.apk` 可换成客户端安装包的二维码
+- `/qr.svg?path=/app/zerotier.apk` 可换成客户端安装包的二维码
 - 页面**默认中文**，右上角 `中文 · English` 切换；选择记在 cookie `lang`（一年），也可直接访问 `?lang=en` / `?lang=zh`，`?lang=` 优先于 cookie，值不认识时回落到 cookie/中文
 
 二维码由 `planet-node/vendor/qrcodegen.py` 生成（Nayuki, MIT，来源与 sha256 见 `planet-node/vendor/README.md`），容器里以 `./qrcodegen.py:/usr/local/bin/qrcodegen.py:ro` 挂进去。这个文件缺失时页面只是不显示二维码、`/qr.svg` 返回 503，其余端点不受影响。
@@ -408,7 +410,7 @@ curl -sI https://zt.vnimy.com/app/zerotierfix.apk | head -1
 | 行星节点镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2` | `sha256:d4f91480ae9e973c9d5f8b349e34eb77d0e6fc7bd74772223f4e0584c2b0d336`，180 MB |
 | 本地同名 tag | `zt-stack/planet-node:1.16.2` | 同一 image id `d4f91480ae9e`（历史兼容名） |
 | 客户端镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-client:1.16.2`（`client-node/`，只从行星镜像取二进制） | `sha256:6a94e872946e464bdb361063cbdfd9bc5b112e0c92c4fc0bf1f38156cd0b7ad4`，38,384,335 B |
-| Android 客户端 | 交付 `artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务/通知断开 + 路由表/扫码导入 + 网络切换自愈 + 检查更新 + 快捷设置磁贴（长按打开 App），versionCode 17 / 1.0.13）<br>回退 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 1.16.2：23,906,940 B，`sha256:e03413a83b8593b3dc6d04fa48a07566a725fbcbb31548c5210d9a639dee0796`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
+| Android 客户端 | 交付 `artifacts/ZeroTier-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务/通知断开 + 路由表/扫码导入 + 网络切换自愈 + 检查更新 + 快捷设置磁贴（长按打开 App）+ 包名迁移 + 扫码添加网络 + 官方橙色主题，versionCode 20 / 2.0.2，包名 `com.vnimy.zerotier`）<br>旧包名回退 `artifacts/ZerotierFix-1.16.2-debug.apk`（1.0.13）<br>阶段1 回退 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 2.0.2：23,907,046 B，`sha256:a4d3e1c41d3843645b991769b241c1ddb6853c9ceabfaebb2172065448a15a8b`<br>1.0.13：23,906,940 B，`sha256:e03413a83b8593b3dc6d04fa48a07566a725fbcbb31548c5210d9a639dee0796`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 离线发布包 | `release/dist/`（由 `release/build-release.sh` 生成，**不入库**） | tar `planet-node-1.16.2.tar.gz` 44,009,044 B，`sha256:6da744fc6f665943b557229cafe2fcf807ae35603574ad262000581a164664c4` |
 | 镜像源码 | `planet-node/`（Dockerfile + entrypoint + vendored mkworld） | 构建基准 = ZeroTierOne tag `1.16.2`（commit `a5807560`） |
 
@@ -422,7 +424,7 @@ curl -sI https://zt.vnimy.com/app/zerotierfix.apk | head -1
 |---|---|
 | 服务器 / 目录 | `81.69.244.33`（`VM-0-17-ubuntu`），`/root/docker/zerotier/`，compose 项目名 `zt-stack` |
 | 数据卷 | **bind mount** `./planet-data:/var/lib/zerotier-one`；**不是**命名卷 `zt-stack_planet-data`（早期实验残留，identity `e3414c140d`，与线上无关） |
-| 下载服务 | `./planet-files.py` 单独 bind mount 到 `/usr/local/bin/planet-files.py:ro`，改脚本不用重编镜像；`version.json` 与 `zerotierfix.apk` 直接放 `planet-data/`（见 6.6） |
+| 下载服务 | `./planet-files.py` 单独 bind mount 到 `/usr/local/bin/planet-files.py:ro`，改脚本不用重编镜像；`version.json` 与 `zerotier.apk` 直接放 `planet-data/`（见 6.6） |
 | 二维码 | `./qrcodegen.py`（vendored，Nayuki MIT）挂到 `/usr/local/bin/qrcodegen.py:ro`；下载页 `https://zt.vnimy.com/dl/`，二维码 `https://zt.vnimy.com/qr.svg`（见 6.7） |
 | 外部反代 | 容器 `nginx`（镜像 `nginx-with-auth`），配置在宿主机 `/root/docker/nginx/conf.d/zerotier.conf`，示例见 `docs/NGINX-反代.md` |
 | 端口 | `ZT_PORT=9993`（仓库默认 9994）；面板 3001 由外部 nginx 反代到 443 |
@@ -469,7 +471,7 @@ curl -sI https://zt.vnimy.com/app/zerotierfix.apk | head -1
 ```bash
 bash zt-stack/planet-node/verify.sh                 # 43 条：planet 生成、controller、下载、幂等、换 IP 保身份
 bash zt-stack/scripts/e2e-verify.sh                 # 端到端：客户端换 planet → peers 出现 PLANET → 网络 OK
-bash zt-stack/patches/zerotierfix/test/run-planet-sync-test.sh D:/Projects/zerotier/ZerotierFix   # 28 条
+bash zt-stack/tests/zerotierfix/run-planet-sync-test.sh D:/Projects/zerotier/ZerotierFix   # 28 条
 bash zt-stack/clients/test/test-download.sh         # 21 条（Linux/Windows 脚本的下载-校验-替换）
 bash zt-stack/release/build-release.sh && (cd zt-stack/release/dist && sha256sum -c SHA256SUMS)
 ```

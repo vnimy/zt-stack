@@ -46,7 +46,7 @@ cleartext); the token lives in `/var/lib/zerotier-one/authtoken.secret`.
 | `Dockerfile` | three stages: ZeroTier 1.16.2 build, mkworld build, runtime |
 | `build.sh` | exports `ZeroTierOne`@`1.16.2` with `git archive`, then `docker build` |
 | `entrypoint.sh` | idempotent first-start state generation, then foreground `zerotier-one` |
-| `planet-files.py` | download service (`/planet`, `/moons`, `/moon/<f>`, `/healthz`, `/version.json`, `/app/zerotierfix.apk`, `/qr.svg`, `/`) |
+| `planet-files.py` | download service (`/planet`, `/moons`, `/moon/<f>`, `/healthz`, `/version.json`, `/app/zerotier.apk`, `/qr.svg`, `/`；`/app/zerotierfix.apk` 为兼容别名) |
 | `vendor/qrcodegen.py` | vendored QR generator (Nayuki, MIT), see `vendor/README.md` |
 | `verify.sh` | single-container acceptance run (all six checks, PASS/FAIL lines) |
 | `mkworld/` | vendored planet generator, see `mkworld/README.md` |

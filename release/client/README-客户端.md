@@ -12,9 +12,9 @@
 「下载凭据」那一行。服务端认两种带法：查询串 `?token=xxx` 或请求头
 `Authorization: Bearer xxx`。
 
-## Android（ZerotierFix）
+## Android（ZeroTier）
 
-安装包：`client/ZerotierFix-1.16.2-debug.apk`（debug 包，安装时要允许「未知来源」）。
+安装包：`client/ZeroTier-1.16.2-debug.apk`（debug 包，安装时要允许「未知来源」）。
 
 1. 装 APK，打开 App。
 2. 右上角菜单 → **设置** → **行星服务器（自动下载）**。

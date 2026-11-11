@@ -23,8 +23,8 @@ rm -rf "$OUT"
 mkdir -p "$OUT"
 
 "$JAVAC" -encoding UTF-8 -d "$OUT" \
-  "$REPO/app/src/main/java/net/kaaass/zerotierfix/util/Constants.java" \
-  "$REPO/app/src/main/java/net/kaaass/zerotierfix/util/PlanetSyncer.java" \
+  "$REPO/app/src/main/java/com/vnimy/zerotier/util/Constants.java" \
+  "$REPO/app/src/main/java/com/vnimy/zerotier/util/PlanetSyncer.java" \
   "$HERE/PlanetSyncHarness.java"
 
 # -Dstdout.encoding 保证在 Windows 控制台/重定向下断言输出都是 UTF-8

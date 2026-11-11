@@ -410,7 +410,7 @@ printf '                    %s/tcp          ZTNet 面板\n' "$ZTNET_PORT"
 [ -n "$TLS_DOMAIN" ] && printf '                    80/tcp 443/tcp 443/udp   Caddy ACME + HTTPS\n'
 echo "  下一步          :"
 echo "                    1) 浏览器打开面板，注册第一个管理员账号（第一个注册的账号是管理员）"
-echo "                    2) 客户端：Android 装 client/ZerotierFix-1.16.2-debug.apk，"
+echo "                    2) 客户端：Android 装 client/ZeroTier-1.16.2-debug.apk，"
 printf '                       设置 -> 行星服务器（自动下载）-> 填 %s（token 可选）\n' "$PLANET_URL"
 echo "                    3) 桌面端：client/windows|linux|macos 里的脚本，用法见 client/README-客户端.md"
 echo "                    4) 备份与换 IP：见 README-部署.md"

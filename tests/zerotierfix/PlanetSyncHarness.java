@@ -1,8 +1,8 @@
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
-import net.kaaass.zerotierfix.util.Constants;
-import net.kaaass.zerotierfix.util.PlanetSyncer;
+import com.vnimy.zerotier.util.Constants;
+import com.vnimy.zerotier.util.PlanetSyncer;
 
 import java.io.File;
 import java.io.IOException;

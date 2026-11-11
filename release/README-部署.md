@@ -82,7 +82,7 @@ UDP 9994 不放行，客户端会一直停在「连不上根节点」。
 服务端装完会打印 planet 下载地址，形如 `http://<IP>:3000/planet`（有 TLS 则是
 `https://<域名>/planet`）。细节见 `client/README-客户端.md`，这里是要点：
 
-- **Android**：装 `client/ZerotierFix-1.16.2-debug.apk` → 设置 → **行星服务器（自动下载）**
+- **Android**：装 `client/ZeroTier-1.16.2-debug.apk` → 设置 → **行星服务器（自动下载）**
   → 地址填 `http(s)://<IP>:3000/planet` → 「下载 token（可选）」填服务端 `.env` 里的
   `DOWNLOAD_TOKEN`（服务端没启用就留空）→ 保存并同步。
 - **Windows**（管理员 PowerShell，在 `client/windows`）：

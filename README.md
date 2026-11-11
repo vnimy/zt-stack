@@ -200,7 +200,7 @@ moon（如果要用 moon 而不是 planet）在 ```/moons``` 与 ```/moon/<文�
 | Windows | ```clients/windows/install-planet.ps1``` / ```.cmd``` | 写入 ```%LOCALAPPDATA%\ZeroTier\One\planet```，重启服务 |
 | macOS | ```clients/macos/install-planet.command``` | 写入 ```/Library/Application Support/ZeroTier/One/planet``` |
 | Linux | ```clients/linux/install-planet.sh``` | 写入 ```/var/lib/zerotier-one/planet``` |
-| Android | [```patches/zerotierfix/```](patches/zerotierfix/) | ZeroTierFix 补丁版 APK，只用 ```Authorization: Bearer``` 下载 planet |
+| Android | [```vnimy/ZeroTier```](https://github.com/vnimy/ZeroTier) | ZeroTier 客户端源码与 APK；只用 ```Authorization: Bearer``` 下载 planet |
 
 脚本同时支持 ```?token=``` 与 ```Authorization: Bearer```；Android 只发 Bearer，
 所以服务端两种都实现了（见 ```planet-node/planet-files.py```）。
@@ -272,7 +272,8 @@ zt-stack/
 ├── docs/
 │   ├── ARCHITECTURE.md        组件/端口/数据流/兼容性证据/限制/设计不变量/术语
 │   ├── OPERATIONS.md          备份恢复/升级/改 IP/日志/重置/排障/资产坐标/已知限制
-│   └── NGINX-反代.md          外部 Nginx 反代示例与三条铁律
+│   ├── NGINX-反代.md          外部 Nginx 反代示例与三条铁律
+│   └── zerotierfix-delivery.md  Android 客户端交付记录
 ├── planet-node/               行星节点镜像（Dockerfile、entrypoint、文件服务）
 ├── clients/                   各平台 planet 安装脚本
 ├── client-node/               容器化客户端（PLANET_URL + NETWORK_ID 自动接入）
@@ -282,7 +283,8 @@ zt-stack/
 │   ├── README-部署.md         服务器侧唯一要看的文档（三条命令跑完）
 │   ├── client/                APK + Windows/Linux/macOS planet 脚本 + 客户端配置说明
 │   └── dist/                  build-release.sh 的产物（dist/*.tar.gz 不入库）
-└── patches/zerotierfix/       Android 客户端补丁
+├── tools/                     客户端构建脚本（build-client.sh）
+└── tests/zerotierfix/         客户端 Planet 同步端到端测试
 ```
 
 ---

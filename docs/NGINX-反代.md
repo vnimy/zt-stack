@@ -4,7 +4,7 @@
 
 | 宿主端口（默认） | 协议 | 用途 | 能不能经 Nginx 反代 |
 |---|---|---|---|
-| `FILES_PORT=3000` | HTTP | `/planet`、`/moons`、`/moon/<name>`、`/healthz`、`/version.json`、`/app/zerotierfix.apk`、`/qr.svg`、`/dl/`、`/` 下载页 | **能** |
+| `FILES_PORT=3000` | HTTP | `/planet`、`/moons`、`/moon/<name>`、`/healthz`、`/version.json`、`/app/zerotier.apk`、`/qr.svg`、`/dl/`、`/` 下载页 | **能** |
 | `ZTNET_PORT=3001` | HTTP | ZTNet 面板（Next.js） | **能** |
 | `ZT_PORT=9994` | **TCP + UDP** | ZeroTier 的 peer 传输与控制 API | **不能**（不是 HTTP；UDP 反代无意义，改域名也没用） |
 
@@ -69,7 +69,7 @@ server {
     location = /planet  { proxy_pass http://zt_files; }
     location = /moons   { proxy_pass http://zt_files; }
     location ^~ /moon/  { proxy_pass http://zt_files; }
-    # 客户端检查更新：/version.json 清单 + /app/zerotierfix.apk 安装包
+    # 客户端检查更新：/version.json 清单 + /app/zerotier.apk 安装包
     location = /version.json { proxy_pass http://zt_files; }
     location ^~ /app/        { proxy_pass http://zt_files; }
     # 下载页与二维码（/dl 映射到根，页面里的链接都是绝对路径，仍指向本域）
@@ -116,7 +116,7 @@ upstream zt_files { server zerotier:3000; }
 
 | 客户端 | 地址 |
 |---|---|
-| Android（ZerotierFix） | `https://zt.example.com/planet`（token 填 `?token=` 或 App 里的 token 字段） |
+| Android（ZeroTier） | `https://zt.example.com/planet`（token 填 `?token=` 或 App 里的 token 字段） |
 | Windows / Linux / macOS 脚本 | `-ServerUrl https://zt.example.com/planet`（`-Token` 可选） |
 | 手工放置 | 从 `https://zt.example.com/planet` 下载后放进客户端数据目录 |
 

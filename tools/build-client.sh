@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ZerotierFix 阶段1 可复现构建脚本
+# ZeroTier 客户端可复现构建脚本
 #   目标：JDK17 + Gradle 8.7 + AGP 8.6.1 + compileSdk/targetSdk 35 + minSdk 21
 #   产出：app/build/outputs/apk/debug/app-debug.apk，并拷贝到 zt-stack/artifacts/
 #
@@ -16,7 +16,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-STACK_ROOT="$(cd "$HERE/../.." && pwd)"
+STACK_ROOT="$(cd "$HERE/.." && pwd)"
 BUILD_ROOT="${BUILD_ROOT:-$STACK_ROOT/.build}"
 REPO="${REPO:-D:/Projects/zerotier/ZerotierFix}"
 export JAVA_HOME="${JAVA_HOME:-D:/Projects/MM678/build-android/tools/jdk-17.0.20.1+1}"
@@ -24,7 +24,7 @@ ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-D:/Projects/MM678/build-android/android-sd
 NDK_DIR="${NDK_DIR:-$ANDROID_SDK_ROOT/ndk/android-ndk-r28c}"
 CMAKE_DIR="${CMAKE_DIR:-$BUILD_ROOT/.toolchain/cmake-3.22.1}"
 CORE_VERSION="$(cd "$REPO/externals/core" 2>/dev/null && git describe --tags --abbrev=0 --match '[0-9]*' 2>/dev/null || echo unknown)"
-APK_NAME="${APK_NAME:-ZerotierFix-${CORE_VERSION}-debug.apk}"
+APK_NAME="${APK_NAME:-ZeroTier-${CORE_VERSION}-debug.apk}"
 # 交给 JVM/AGP 的路径必须是 Windows 形式（本沙箱 bash 里没有 cygpath，手动转换 /d/... -> D:/...）
 winpath() {
   case "$1" in
@@ -69,10 +69,8 @@ echo "APK_NAME=$APK_NAME"
 CORE_DIR="$REPO/externals/core"
 CORE_PATCH="${CORE_PATCH:-}"
 if [ -z "$CORE_PATCH" ]; then
-  for p in "$REPO/tools/core-patches/0001-jni-1.16.2.patch" \
-           "$STACK_ROOT/patches/zerotierfix/0003-core-1.16.2-jni.patch"; do
-    if [ -f "$p" ]; then CORE_PATCH="$p"; break; fi
-  done
+  CORE_PATCH="$REPO/tools/core-patches/0001-jni-1.16.2.patch"
+  [ -f "$CORE_PATCH" ] || CORE_PATCH=""
 fi
 CORE_PATCH_APPLIED=0
 restore_core() {

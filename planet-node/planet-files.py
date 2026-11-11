@@ -7,10 +7,12 @@ Serves, out of /var/lib/zerotier-one:
   GET /moons          JSON list of moon file names
   GET /moon/<name>    one moon file
   GET /version.json   latest client build info, read from $ZT_HOME/version.json
+  GET /app/zerotier.apk
+                      latest Android build, read from $ZT_HOME/zerotier.apk
   GET /app/zerotierfix.apk
-                      latest Android build, read from $ZT_HOME/zerotierfix.apk
+                      legacy alias for the same Android build
   GET /qr.svg         QR code (SVG) of the planet URL, for the Android client's
-                      "import from QR code"; ?path=/app/zerotierfix.apk for the APK
+                      "import from QR code"; ?path=/app/zerotier.apk for the APK
   GET /               tiny HTML index page, Chinese by default; ?lang=en switches
                       to English and remembers the choice in a cookie
 
@@ -37,7 +39,7 @@ ZT_HOME = os.environ.get("ZT_HOME", "/var/lib/zerotier-one")
 PLANET_PATH = os.path.join(ZT_HOME, "planet")
 MOONS_DIR = os.path.join(ZT_HOME, "moons.d")
 VERSION_PATH = os.path.join(ZT_HOME, "version.json")
-APP_APK_PATH = os.path.join(ZT_HOME, "zerotierfix.apk")
+APP_APK_PATH = os.path.join(ZT_HOME, "zerotier.apk")
 TOKEN = os.environ.get("DOWNLOAD_TOKEN", "")
 PORT = int(os.environ.get("FILES_PORT", "3000"))
 
@@ -58,10 +60,10 @@ code{background:#f2f2f2;padding:.1rem .3rem;border-radius:3px}
 <ul>
 <li><a href="/planet@@SUFFIX@@">planet</a> @@PLANET_NOTE@@</li>
 <li><a href="/moons@@SUFFIX@@">moons</a> @@MOONS_NOTE@@</li>
-<li><a href="/app/zerotierfix.apk@@SUFFIX@@">@@APP_LINK@@</a> @@APP_NOTE@@</li>
+<li><a href="/app/zerotier.apk@@SUFFIX@@">@@APP_LINK@@</a> @@APP_NOTE@@</li>
 </ul>
 <h2>@@H2_APP@@</h2>
-<p>@@APP_VERSION@@ &middot; <a href="/app/zerotierfix.apk@@SUFFIX@@">@@DOWNLOAD@@</a></p>
+<p>@@APP_VERSION@@ &middot; <a href="/app/zerotier.apk@@SUFFIX@@">@@DOWNLOAD@@</a></p>
 <div class="qr">
 @@QR_BLOCK@@
 <div>
@@ -86,7 +88,7 @@ STRINGS = {
         "planet_note": "（world 文件，sha256 <code>{digest}</code>）",
         "moons_note": "（JSON 列表）",
         "app_link": "Android 客户端",
-        "app_note": "（ZerotierFix APK）",
+        "app_note": "（ZeroTier APK）",
         "h2_app": "Android 客户端",
         "app_version_fallback": "未发布",
         "download": "下载",
@@ -107,7 +109,7 @@ STRINGS = {
         "planet_note": "(world file, sha256 <code>{digest}</code>)",
         "moons_note": "(JSON list)",
         "app_link": "Android client",
-        "app_note": "(ZerotierFix APK)",
+        "app_note": "(ZeroTier APK)",
         "h2_app": "Android client",
         "app_version_fallback": "not published",
         "download": "download",
@@ -273,8 +275,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(503, b"503 QR support is not installed\n", "text/plain; charset=utf-8")
             return
         path = (query.get("path") or ["/planet"])[0]
-        if path not in ("/planet", "/app/zerotierfix.apk"):
-            self._send(400, b"400 path must be /planet or /app/zerotierfix.apk\n", "text/plain; charset=utf-8")
+        if path not in ("/planet", "/app/zerotier.apk", "/app/zerotierfix.apk"):
+            self._send(400, b"400 path must be /planet, /app/zerotier.apk or /app/zerotierfix.apk\n", "text/plain; charset=utf-8")
             return
         url = self._public_base() + path
         token = (query.get("token") or [""])[0]
@@ -407,8 +409,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._serve_version()
             elif path == "/qr.svg":
                 self._serve_qr(query)
-            elif path == "/app/zerotierfix.apk":
-                self._serve_file(APP_APK_PATH, "zerotierfix.apk")
+            elif path in ("/app/zerotier.apk", "/app/zerotierfix.apk"):
+                self._serve_file(APP_APK_PATH, "zerotier.apk")
             elif path.startswith("/moon/"):
                 name = path[len("/moon/"):]
                 if not MOON_NAME_RE.match(name):
