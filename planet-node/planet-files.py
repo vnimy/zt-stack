@@ -11,7 +11,8 @@ Serves, out of /var/lib/zerotier-one:
                       latest Android build, read from $ZT_HOME/zerotierfix.apk
   GET /qr.svg         QR code (SVG) of the planet URL, for the Android client's
                       "import from QR code"; ?path=/app/zerotierfix.apk for the APK
-  GET /               tiny HTML index page
+  GET /               tiny HTML index page, Chinese by default; ?lang=en switches
+                      to English and remembers the choice in a cookie
 
 Auth: when DOWNLOAD_TOKEN is non-empty, every endpoint except /healthz requires
 it, either as ?token=... or as "Authorization: Bearer ...". Empty token means no
@@ -43,37 +44,87 @@ PORT = int(os.environ.get("FILES_PORT", "3000"))
 MOON_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.moon$")
 
 INDEX_TEMPLATE = """<!doctype html>
-<html><head><meta charset="utf-8"><title>ZeroTier planet</title>
+<html lang="@@LANG@@"><head><meta charset="utf-8"><title>@@TITLE@@</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>body{font-family:system-ui,sans-serif;margin:2rem;max-width:48rem}
 code{background:#f2f2f2;padding:.1rem .3rem;border-radius:3px}
+.nav{margin:0 0 1rem;font-size:.9rem;text-align:right}
+.nav a{text-decoration:none}
 .qr{display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap;margin:1rem 0}
 .qr img{width:200px;height:200px;border:1px solid #ddd;border-radius:6px;background:#fff}</style></head>
 <body>
-<h1>ZeroTier planet node</h1>
+<p class="nav"><a href="@@HREF_ZH@@">&#20013;&#25991;</a> &middot; <a href="@@HREF_EN@@">English</a></p>
+<h1>@@H1@@</h1>
 <ul>
-<li><a href="/planet@@SUFFIX@@">planet</a> (world file, sha256 <code>@@DIGEST@@</code>)</li>
-<li><a href="/moons@@SUFFIX@@">moons</a> (JSON list)</li>
-<li><a href="/app/zerotierfix.apk@@SUFFIX@@">Android client</a> (ZerotierFix APK)</li>
+<li><a href="/planet@@SUFFIX@@">planet</a> @@PLANET_NOTE@@</li>
+<li><a href="/moons@@SUFFIX@@">moons</a> @@MOONS_NOTE@@</li>
+<li><a href="/app/zerotierfix.apk@@SUFFIX@@">@@APP_LINK@@</a> @@APP_NOTE@@</li>
 </ul>
-<h2>Android client</h2>
-<p>@@APP_VERSION@@ &middot; <a href="/app/zerotierfix.apk@@SUFFIX@@">download</a></p>
+<h2>@@H2_APP@@</h2>
+<p>@@APP_VERSION@@ &middot; <a href="/app/zerotierfix.apk@@SUFFIX@@">@@DOWNLOAD@@</a></p>
 <div class="qr">
 @@QR_BLOCK@@
 <div>
-<p>Scan with the app: <b>Settings &rarr; Planet server &rarr; Import from QR code</b>.</p>
-<p>The code carries <code>@@PLANET_URL@@</code>.</p>
+<p>@@SCAN@@</p>
+<p>@@CARRIES@@</p>
 </div>
 </div>
-<h2>Moons</h2>
+<h2>@@H2_MOONS@@</h2>
 <ul>@@ROWS@@</ul>
-<h2>Client setup</h2>
-<p>Drop <code>planet</code> into <code>/var/lib/zerotier-one/planet</code> on the client
-(<code>&#37;LOCALAPPDATA&#37;\\ZeroTier\\One\\planet</code> on Windows) and restart the
-ZeroTier service.</p>
-<p>Moons belong in <code>/var/lib/zerotier-one/moons.d/</code>; orbit them with
-<code>zerotier-cli orbit &lt;moonid&gt; &lt;moonid&gt;</code>.</p>
+<h2>@@H2_SETUP@@</h2>
+<p>@@SETUP1@@</p>
+<p>@@SETUP2@@</p>
 </body></html>
 """
+
+# Page strings. Keys shared by both languages; {digest}/{url} are filled in
+# with str.replace so CSS braces and percent signs elsewhere stay untouched.
+STRINGS = {
+    "zh": {
+        "title": "ZeroTier 行星节点",
+        "h1": "ZeroTier 行星节点",
+        "planet_note": "（world 文件，sha256 <code>{digest}</code>）",
+        "moons_note": "（JSON 列表）",
+        "app_link": "Android 客户端",
+        "app_note": "（ZerotierFix APK）",
+        "h2_app": "Android 客户端",
+        "app_version_fallback": "未发布",
+        "download": "下载",
+        "scan": "用 App 扫码：<b>设置 &rarr; 行星服务器 &rarr; 扫描二维码导入</b>。",
+        "carries": "二维码内容为 <code>{url}</code>。",
+        "h2_moons": "Moons",
+        "no_moons": "暂无 moon",
+        "h2_setup": "客户端接入",
+        "setup1": "把 <code>planet</code> 放到客户端的 <code>/var/lib/zerotier-one/planet</code>"
+        "（Windows 为 <code>&#37;LOCALAPPDATA&#37;\\ZeroTier\\One\\planet</code>），然后重启 ZeroTier 服务。",
+        "setup2": "moon 文件放到 <code>/var/lib/zerotier-one/moons.d/</code>，用"
+        " <code>zerotier-cli orbit &lt;moonid&gt; &lt;moonid&gt;</code> 加入轨道。",
+        "qr_missing": "二维码支持未安装。",
+    },
+    "en": {
+        "title": "ZeroTier planet node",
+        "h1": "ZeroTier planet node",
+        "planet_note": "(world file, sha256 <code>{digest}</code>)",
+        "moons_note": "(JSON list)",
+        "app_link": "Android client",
+        "app_note": "(ZerotierFix APK)",
+        "h2_app": "Android client",
+        "app_version_fallback": "not published",
+        "download": "download",
+        "scan": "Scan with the app: <b>Settings &rarr; Planet server &rarr; Import from QR code</b>.",
+        "carries": "The code carries <code>{url}</code>.",
+        "h2_moons": "Moons",
+        "no_moons": "no moons yet",
+        "h2_setup": "Client setup",
+        "setup1": "Drop <code>planet</code> into <code>/var/lib/zerotier-one/planet</code> on the client"
+        " (<code>&#37;LOCALAPPDATA&#37;\\ZeroTier\\One\\planet</code> on Windows) and restart the"
+        " ZeroTier service.",
+        "setup2": "Moons belong in <code>/var/lib/zerotier-one/moons.d/</code>; orbit them with"
+        " <code>zerotier-cli orbit &lt;moonid&gt; &lt;moonid&gt;</code>.",
+        "qr_missing": "QR support not installed.",
+    },
+}
+DEFAULT_LANG = "zh"
 
 
 def log(message):
@@ -231,26 +282,48 @@ class Handler(BaseHTTPRequestHandler):
             url += "?token=" + quote(token, safe="")
         self._send(200, qr_svg(url).encode("utf-8"), "image/svg+xml; charset=utf-8")
 
+    def _cookie_lang(self):
+        for part in (self.headers.get("Cookie") or "").split(";"):
+            key, _, value = part.strip().partition("=")
+            if key == "lang" and value.strip() in STRINGS:
+                return value.strip()
+        return DEFAULT_LANG
+
     def _index_page(self, query):
         token = (query.get("token") or [""])[0]
+        wanted = (query.get("lang") or [""])[0].strip().lower()
+        lang = wanted if wanted in STRINGS else self._cookie_lang()
+        text = STRINGS[lang]
         suffix = ("?token=" + token) if token else ""
+
+        def lang_href(target):
+            pairs = []
+            if token:
+                pairs.append("token=" + quote(token, safe=""))
+            pairs.append("lang=" + target)
+            return "?" + "&".join(pairs)
+
         moons = list_moons()
         rows = "".join(
             '<li><a href="/moon/%s%s">%s</a></li>' % (name, suffix, name) for name in moons
-        ) or "<li><em>no moons yet</em></li>"
+        ) or "<li><em>%s</em></li>" % text["no_moons"]
         planet_digest = "unavailable"
         try:
             planet_digest = sha256_of(PLANET_PATH)
         except OSError:
             pass
-        app_version = "not published"
+        info = None
         try:
             with open(VERSION_PATH, "rb") as fp:
                 info = json.loads(fp.read().decode("utf-8"))
-            if isinstance(info, dict) and isinstance(info.get("versionCode"), int):
-                app_version = "%s (code %d)" % (info.get("versionName") or "?", info["versionCode"])
+            if not (isinstance(info, dict) and isinstance(info.get("versionCode"), int)):
+                info = None
         except (OSError, ValueError, UnicodeDecodeError):
-            pass
+            info = None
+        if info is None:
+            app_version = text["app_version_fallback"]
+        else:
+            app_version = "%s (code %d)" % (info.get("versionName") or "?", info["versionCode"])
         try:
             app_version += " &middot; %s" % human_size(os.path.getsize(APP_APK_PATH))
         except OSError:
@@ -259,17 +332,42 @@ class Handler(BaseHTTPRequestHandler):
         if token:
             planet_url += "?token=" + quote(token, safe="")
         if qrcodegen is None:
-            qr_block = "<p><em>QR support not installed.</em></p>"
+            qr_block = "<p><em>%s</em></p>" % text["qr_missing"]
         else:
             qr_block = '<img src="/qr.svg%s" width="200" height="200" alt="planet QR code">' % suffix
         # str.replace, not %/format: the page contains CSS braces and percent signs
-        html = INDEX_TEMPLATE.replace("@@SUFFIX@@", suffix)
-        html = html.replace("@@DIGEST@@", planet_digest)
-        html = html.replace("@@ROWS@@", rows)
-        html = html.replace("@@APP_VERSION@@", app_version)
+        html = INDEX_TEMPLATE
+        replacements = (
+            ("@@LANG@@", "zh-CN" if lang == "zh" else "en"),
+            ("@@TITLE@@", text["title"]),
+            ("@@H1@@", text["h1"]),
+            ("@@HREF_ZH@@", lang_href("zh")),
+            ("@@HREF_EN@@", lang_href("en")),
+            ("@@SUFFIX@@", suffix),
+            ("@@PLANET_NOTE@@", text["planet_note"].replace("{digest}", planet_digest)),
+            ("@@MOONS_NOTE@@", text["moons_note"]),
+            ("@@APP_LINK@@", text["app_link"]),
+            ("@@APP_NOTE@@", text["app_note"]),
+            ("@@H2_APP@@", text["h2_app"]),
+            ("@@APP_VERSION@@", app_version),
+            ("@@DOWNLOAD@@", text["download"]),
+            ("@@SCAN@@", text["scan"]),
+            ("@@ROWS@@", rows),
+            ("@@H2_MOONS@@", text["h2_moons"]),
+            ("@@H2_SETUP@@", text["h2_setup"]),
+            ("@@SETUP1@@", text["setup1"]),
+            ("@@SETUP2@@", text["setup2"]),
+        )
+        for key, value in replacements:
+            html = html.replace(key, value)
+        # Filled last: their values may contain strings that look like tokens.
         html = html.replace("@@PLANET_URL@@", planet_url)
+        html = html.replace("@@CARRIES@@", text["carries"].replace("{url}", planet_url))
         html = html.replace("@@QR_BLOCK@@", qr_block)
-        self._send(200, html.encode(), "text/html; charset=utf-8")
+        headers = {}
+        if wanted in STRINGS:
+            headers["Set-Cookie"] = "lang=%s; Path=/; Max-Age=31536000; SameSite=Lax" % lang
+        self._send(200, html.encode(), "text/html; charset=utf-8", headers)
 
     # ----------------------------------------------------------------- routes
     def do_GET(self):

@@ -368,6 +368,7 @@ curl -sI https://zt.vnimy.com/app/zerotierfix.apk | head -1
 - 当前客户端版本与体积 —— 读 `planet-data/version.json` 与 `planet-data/zerotierfix.apk`，没有这两个文件就只显示 planet 部分
 - planet 的二维码（`/qr.svg`），手机「设置 → 行星服务器 → 扫描二维码导入」直接扫，扫到的就是页面下方印的 `https://<域名>/planet`
 - `/qr.svg?path=/app/zerotierfix.apk` 可换成客户端安装包的二维码
+- 页面**默认中文**，右上角 `中文 · English` 切换；选择记在 cookie `lang`（一年），也可直接访问 `?lang=en` / `?lang=zh`，`?lang=` 优先于 cookie，值不认识时回落到 cookie/中文
 
 二维码由 `planet-node/vendor/qrcodegen.py` 生成（Nayuki, MIT，来源与 sha256 见 `planet-node/vendor/README.md`），容器里以 `./qrcodegen.py:/usr/local/bin/qrcodegen.py:ro` 挂进去。这个文件缺失时页面只是不显示二维码、`/qr.svg` 返回 503，其余端点不受影响。
 
