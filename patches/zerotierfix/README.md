@@ -9,8 +9,9 @@
   只重写 `externals/core/java/CMakeLists.txt` 并换代 core 源码。
 - **阶段3**：修 Android 15（targetSdk 35）强制 edge-to-edge 导致的「标题栏盖住页面顶部」，见 §0.1。
 - **阶段4**：连接时改为前台服务（切后台不再被系统回收）+ 通知栏「断开连接」按钮；移除从未生效的开机自启接收器，见 §0.2。
+- **阶段5**：网络详情展示路由表；设置页支持**扫码导入**行星服务器地址（含 token），见 §0.3。
 
-> 当前交付 APK 是**阶段4**：`artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务）。
+> 当前交付 APK 是**阶段5**：`artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务 + 路由表/扫码）。
 > 阶段1 的 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2）保留作回退。
 
 ---
@@ -67,7 +68,23 @@ targetSdk 35 在 Android 15+ 上强制 edge-to-edge：窗口铺满整屏（含�
 | 通知动作 | 通知新增「断开连接」按钮（`ACTION_DISCONNECT` 显式 Intent → `PendingIntent.getService`），`onStartCommand` 收到后走 `stopZeroTier()` + `stopSelf()`，与系统撤销 VPN 权限同一套清理逻辑；`stopZeroTier()` 末尾 `stopForeground(true)` |
 | 开机自启 | 删除 `service/StartupReceiver.java`（原本只打一行日志）、manifest 里的 `<receiver BOOT_COMPLETED>` 与孤立常量 `PREF_GENERAL_START_ZEROTIER_ON_BOOT`。开机自启改用系统「始终开启的 VPN」（设置 → 网络 → VPN → 齿轮 → Always-on VPN），见 `docs/OPERATIONS.md` §6.5 |
 | 补丁 | `0005-feat-foreground-service-disconnect.patch` |
-| 产物 | 30,118,932 B，sha256 `7068be7da5c422d54eca3a22ac726b9636cccc8351dd1ba941a8655c47f1f647` |
+| 产物 | 30,118,932 B，sha256 `7068be7da5c422d54eca3a22ac726b9636cccc8351dd1ba941a8655c47f1f647`（阶段4 当时的包；当前值见 §0.3） |
+
+---
+
+## 0.3 阶段5 摘要（路由表 + 扫码导入）
+
+| 项 | 变化 |
+|---|---|
+| 路由表 | 网络详情页「Managed IPs」下新增「Routes」行：遍历 `VirtualNetworkConfig.getRoutes()`，显示 `目标/前缀`，有下一跳时追加 `→ <via>`，默认路由（前缀 0 且地址为 `0.0.0.0`/`::`）追加「(默认路由)」；无路由显示「无」。表格外包 `ScrollView`，路由多时不会把页面撑破 |
+| 路由实现细节 | `VirtualNetworkRoute.getTarget()` 的 port 字段就是前缀长度；**1.16.2 的 JNI 不填充 `flags`**，所以判断默认路由用「前缀为 0 且地址是 any」，不要读 flags；关闭 IPv6 时 `inetSocketAddressToString()` 返回 null，跳过该条 |
+| 扫码导入 | 设置页「行星服务器」下新增「扫描二维码导入」：`zxing-android-embedded 4.3.0`，首次点按申请 `CAMERA` 权限；扫到的内容允许省略协议（自动补 `http://`），`?token=xxx` 会被取出来单独写入 token 项，然后把去参数后的地址写进行星服务器地址并立即触发一次 planet 同步 |
+| 权限 | zxing 的 manifest 合并进 `android.permission.CAMERA`（安装时会多一项相机权限） |
+| 补丁 | `0006-feat-routes-and-qr-import.patch`（父提交 `d629d06`，可单独 `git am`） |
+| 产物 | 30,119,156 B，sha256 `e02afc18bff785629e573b92aba84e6ea6d11f3bb5dd02ea8ce82c314d612637` |
+
+二维码内容格式（与客户端约定）：`https://<域名或IP>:<端口>/?token=<下载口令>` 或 `https://<域名或IP>/planet?token=...` 都行 ——
+客户端只取 `host(:port)` 作为行星服务器地址，`token` 参数单独保存，路径部分忽略。
 
 ---
 
@@ -82,6 +99,7 @@ patches/zerotierfix/
 ├── 0004-fix-edge-to-edge-insets.patch 阶段3：Android 15 edge-to-edge（标题栏不再遮挡内容）
 ├── 0005-feat-foreground-service-disconnect.patch
 │                                       阶段4：前台服务 + 通知栏断开按钮，移除空的开机自启
+├── 0006-feat-routes-and-qr-import.patch 阶段5：网络详情路由表 + 扫码导入行星服务器
 ├── build.sh                            可复现构建脚本（生成 local.properties + 构建 + 收产物）
 ├── README.md                           本文件
 └── test/
@@ -332,8 +350,8 @@ PASS=28 FAIL=0
 | 项 | 值 |
 | --- | --- |
 | APK（当前交付） | `D:\Projects\zerotier\zt-stack\artifacts\ZerotierFix-1.16.2-debug.apk`（core 1.16.2） |
-| 大小 | 30,118,932 字节（28.72 MiB） |
-| SHA256 | `7068be7da5c422d54eca3a22ac726b9636cccc8351dd1ba941a8655c47f1f647`（阶段4，含 0004+0005；阶段3 为 `34876890…`，阶段2 为 `30bc5959…`） |
+| 大小 | 30,119,156 字节（28.72 MiB） |
+| SHA256 | `e02afc18bff785629e573b92aba84e6ea6d11f3bb5dd02ea8ce82c314d612637`（阶段5，含 0004+0005+0006；阶段4 为 `7068be7d…`，阶段3 为 `34876890…`，阶段2 为 `30bc5959…`） |
 | APK（阶段1 回退） | `artifacts\ZerotierFix-1.12.2-debug.apk`（core 1.12.2） |
 | 大小 / SHA256 | 22,736,354 字节 / `e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
 | 内含 | `lib/arm64-v8a/libZeroTierOneJNI.so`（24,197,008 B）、`lib/armeabi-v7a/libZeroTierOneJNI.so`（21,503,892 B）、`classes*.dex` ×12 |
