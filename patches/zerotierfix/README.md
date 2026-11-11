@@ -23,23 +23,22 @@
 
 | 项 | 变化 |
 |---|---|
-| core 源码 | `externals/core` 从 `kaaass/ZeroTierOne @ d028a247`（1.12.2）换成上游 `ZeroTierOne @ 1.16.2`（`fc5c3ec22`） |
-| JNI 适配 | 补丁 `0003-core-1.16.2-jni.patch`：`CMakeLists.txt` 升 C++17、源文件集对齐 `objects.mk`、补 prometheus 头路径 |
+| core 源码 | `externals/core` 指向官方 `zerotier/ZeroTierOne @ fc5c3ec2`（1.16.2）。工作区保持干净，补丁在构建时临时应用 |
+| JNI 适配 | Android 仓库 `tools/core-patches/0001-jni-1.16.2.patch`（与 `0003-core-1.16.2-jni.patch` 内容相同）：`CMakeLists.txt` 升 C++17、源文件集对齐 `objects.mk`、补 prometheus 头路径。`build.sh` 构建前 apply、结束时用 `trap` 自动 `git apply --reverse` 还原 |
 | Java SDK | 无改动。1.12.2→1.16.2 官方只改了 `java/jni/com_zerotierone_sdk_Node.cpp`（`ZT_Node_Config`、线程附加 RAII），native 方法签名不变 |
 | Rust | 不需要。`ZT_SSO_SUPPORTED=1` 才会链 `librustybits.a`，Android JNI 路径不定义该宏 |
 | 产物 | 30,118,932 B，双 ABI，`llvm-nm` 可见 255 个 `ZeroTier::ECC::`/`Bond::` 等 1.16.2 独有符号 |
 | 设备验证 | 真机安装并连上自建网络（阶段2 APK 实测连接成功）；edge-to-edge 的视觉修复未拍照确认，见 §8.3 |
 
-core 换代的可复现步骤：
+core 的可复现步骤（不需要手工 `git am`）：
 
 ```bash
-cd ZerotierFix/externals/core
-git remote add local D:/Projects/zerotier/ZeroTierOne   # 或任意 ZeroTierOne 克隆
-git fetch --no-tags local tag 1.16.2
-git checkout -b zt-stack-core-1.16.2 1.16.2
-git am /path/to/zt-stack/patches/zerotierfix/0003-core-1.16.2-jni.patch
-# 切 core 版本后必须清掉旧产物，否则 CMake 缓存会把 1.12.2 的对象文件带过来
-rm -rf ../../core/.cxx ../../core/build
+git submodule update --init externals/core
+git -C externals/core rev-parse --short HEAD     # 应为 fc5c3ec（官方 1.16.2）
+# build.sh 会在构建前自动 apply tools/core-patches/0001-jni-1.16.2.patch，
+# 构建结束后反向还原，所以 externals/core 永远是干净的上游检出版本
+# 切 core 版本后必须清掉旧产物，否则 CMake 缓存会把旧对象文件带过来
+rm -rf core/.cxx core/build
 ```
 
 ---
@@ -159,9 +158,9 @@ artifacts/
 
 ## 2. 打补丁
 
-前置条件：`externals/core` 已换代到 **ZeroTierOne 1.16.2**（`fc5c3ec22`）并应用 `0003-core-1.16.2-jni.patch`
-（步骤见 §0）。若只要阶段1（core 1.12.2），则子模块必须是 `d028a24795e4348615783f8f8b95207035595f56`
-（= kaaass/ZeroTierOne 1.12.2 分支上的 core 版本），且不打 0003。
+前置条件：`git submodule update --init externals/core`，`externals/core` 应停在官方 **ZeroTierOne 1.16.2**（`fc5c3ec2`）。
+JNI 适配不再需要手工 `git am`：`build.sh` 会在构建前应用 `tools/core-patches/0001-jni-1.16.2.patch`，构建结束自动还原。
+若只想复现阶段1（core 1.12.2），需要把子模块切到 `d028a24795e4348615783f8f8b95207035595f56`（kaaass/ZeroTierOne 的 1.12.2 分支），此时不要打 core 补丁。
 
 ```bash
 cd ZerotierFix

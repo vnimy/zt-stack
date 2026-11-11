@@ -64,6 +64,34 @@ echo "APK_NAME=$APK_NAME"
 "$JAVA_HOME/bin/java" -version 2>&1 | head -1
 "$CMAKE_DIR/bin/cmake.exe" --version | head -1
 
+# externals/core 指向官方 ZeroTierOne 的 1.16.2，JNI 适配是本仓库的补丁，
+# 构建前临时打上，构建结束（无论成功失败）原样回退，保证 git 工作区始终干净。
+CORE_DIR="$REPO/externals/core"
+CORE_PATCH="${CORE_PATCH:-}"
+if [ -z "$CORE_PATCH" ]; then
+  for p in "$REPO/tools/core-patches/0001-jni-1.16.2.patch" \
+           "$STACK_ROOT/patches/zerotierfix/0003-core-1.16.2-jni.patch"; do
+    if [ -f "$p" ]; then CORE_PATCH="$p"; break; fi
+  done
+fi
+CORE_PATCH_APPLIED=0
+restore_core() {
+  if [ "$CORE_PATCH_APPLIED" = 1 ]; then
+    git -C "$CORE_DIR" apply --reverse "$CORE_PATCH" && echo "== externals/core 已还原 =="
+  fi
+}
+trap restore_core EXIT
+[ -n "$CORE_PATCH" ] || { echo "找不到 core 补丁（tools/core-patches/0001-jni-1.16.2.patch）" >&2; exit 2; }
+if git -C "$CORE_DIR" apply --reverse --check "$CORE_PATCH" 2>/dev/null; then
+  echo "== core 补丁已在工作区，跳过 =="
+else
+  git -C "$CORE_DIR" apply --check "$CORE_PATCH" \
+    || { echo "core 补丁无法应用，检查 externals/core 是否在 1.16.2（fc5c3ec2）" >&2; exit 3; }
+  git -C "$CORE_DIR" apply "$CORE_PATCH"
+  CORE_PATCH_APPLIED=1
+  echo "== 已为 externals/core 应用 JNI 适配补丁 =="
+fi
+
 cd "$REPO"
 ./gradlew --no-daemon -Djava.io.tmpdir="$TMP_ROOT" assembleDebug
 
