@@ -7,7 +7,7 @@ controller，配一个 ZTNet Web 面板管理网络与成员。客户端装上�
 - 一条命令部署：```scripts/deploy.sh -i <公网IP>```；不想用脚本就纯 compose（```compose/docker-compose.yml``` + ```.env```）
 - 面板：```http://<IP>:3001```（ZTNet）
 - planet 下载：```http://<IP>:3000/planet```
-- **交接从这里开始**：```docs/HANDOVER.md```（资产坐标、设计决策、运维手册、已知限制、接手清单）
+- 文档入口：架构与设计决策见 ```docs/ARCHITECTURE.md```，部署/备份/排障/资产坐标/已知限制见 ```docs/OPERATIONS.md```，反代见 ```docs/NGINX-反代.md```
 - 只有一个根节点：够个人/小团队用，抗故障能力弱于官方 planet（先读 ```docs/ARCHITECTURE.md``` 第 5、6 节再决定）
 
 > 许可提醒：ZeroTier 1.16.x 是 source-available 许可，**非商业用途免费**；
@@ -270,8 +270,9 @@ zt-stack/
 │   ├── e2e-verify.sh          端到端验收（controller 建网 + 客户端 join + PLANET 断言）
 │   └── lib.sh                 公共函数
 ├── docs/
-│   ├── ARCHITECTURE.md        组件/端口/数据流/兼容性证据/限制
-│   └── OPERATIONS.md          备份恢复/升级/改 IP/日志/重置/排障
+│   ├── ARCHITECTURE.md        组件/端口/数据流/兼容性证据/限制/设计不变量/术语
+│   ├── OPERATIONS.md          备份恢复/升级/改 IP/日志/重置/排障/资产坐标/已知限制
+│   └── NGINX-反代.md          外部 Nginx 反代示例与三条铁律
 ├── planet-node/               行星节点镜像（Dockerfile、entrypoint、文件服务）
 ├── clients/                   各平台 planet 安装脚本
 ├── client-node/               容器化客户端（PLANET_URL + NETWORK_ID 自动接入）

@@ -396,3 +396,107 @@ curl -sI https://zt.vnimy.com/app/zerotierfix.apk | head -1
 | `/dl/` 404 或打开是面板 | 反代没放行 `/dl`、`/dl/` | 按 `docs/NGINX-反代.md` 补 location 后 `nginx -s reload` |
 | 换 IP 后所有客户端失联 | planet 端点变了但客户端还是旧 planet | 重新分发 planet（第 4 节） |
 | `docker compose up` 报端口占用 | 3000/9994 被别的服务占了 | 用 `--files-port` / `--zt-port` / `--ztnet-port` 换端口后重跑 deploy.sh |
+
+---
+
+## 8. 资产坐标与线上实例
+
+### 8.1 版本与校验值
+
+| 资产 | 位置 / 标识 | 校验值 |
+|---|---|---|
+| 行星节点镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2` | `sha256:d4f91480ae9e973c9d5f8b349e34eb77d0e6fc7bd74772223f4e0584c2b0d336`，180 MB |
+| 本地同名 tag | `zt-stack/planet-node:1.16.2` | 同一 image id `d4f91480ae9e`（历史兼容名） |
+| 客户端镜像 | `ccr.ccs.tencentyun.com/vnimy/zerotier-client:1.16.2`（`client-node/`，只从行星镜像取二进制） | `sha256:6a94e872946e464bdb361063cbdfd9bc5b112e0c92c4fc0bf1f38156cd0b7ad4`，38,384,335 B |
+| Android 客户端 | 交付 `artifacts/ZerotierFix-1.16.2-debug.apk`（core 1.16.2 + edge-to-edge + 前台服务/通知断开 + 路由表/扫码导入 + 网络切换自愈 + 检查更新，versionCode 15 / 1.0.11）<br>回退 `artifacts/ZerotierFix-1.12.2-debug.apk`（core 1.12.2） | 1.16.2：23,900,797 B，`sha256:3a55ad113197d07d9f38cd425803f58ecfc6545a8078f63daf83726ae2309ea0`<br>1.12.2：22,736,354 B，`sha256:e0622299f9c137520d76e4a3bde2e874aeafcc63de35c7cf3da947587674cd91` |
+| 离线发布包 | `release/dist/`（由 `release/build-release.sh` 生成，**不入库**） | tar `planet-node-1.16.2.tar.gz` 44,009,044 B，`sha256:6da744fc6f665943b557229cafe2fcf807ae35603574ad262000581a164664c4` |
+| 镜像源码 | `planet-node/`（Dockerfile + entrypoint + vendored mkworld） | 构建基准 = ZeroTierOne tag `1.16.2`（commit `a5807560`） |
+
+镜像、APK、客户端镜像三者版本必须一致：镜像 tag 与 ZT 版本绑定（`PLANET_NODE_TAG`），APK 内嵌 core 与镜像同为 **1.16.2**（1.12.2 版保留作回退）。
+
+### 8.2 线上实例（zt.vnimy.com）
+
+线上与仓库默认形态有差异，备份/巡检前先看这张表：
+
+| 项 | 线上实际值 |
+|---|---|
+| 服务器 / 目录 | `81.69.244.33`（`VM-0-17-ubuntu`），`/root/docker/zerotier/`，compose 项目名 `zt-stack` |
+| 数据卷 | **bind mount** `./planet-data:/var/lib/zerotier-one`；**不是**命名卷 `zt-stack_planet-data`（早期实验残留，identity `e3414c140d`，与线上无关） |
+| 下载服务 | `./planet-files.py` 单独 bind mount 到 `/usr/local/bin/planet-files.py:ro`，改脚本不用重编镜像；`version.json` 与 `zerotierfix.apk` 直接放 `planet-data/`（见 6.6） |
+| 二维码 | `./qrcodegen.py`（vendored，Nayuki MIT）挂到 `/usr/local/bin/qrcodegen.py:ro`；下载页 `https://zt.vnimy.com/dl/`，二维码 `https://zt.vnimy.com/qr.svg`（见 6.7） |
+| 外部反代 | 容器 `nginx`（镜像 `nginx-with-auth`），配置在宿主机 `/root/docker/nginx/conf.d/zerotier.conf`，示例见 `docs/NGINX-反代.md` |
+| 端口 | `ZT_PORT=9993`（仓库默认 9994）；面板 3001 由外部 nginx 反代到 443 |
+| planet 下载 | `https://zt.vnimy.com/planet`（nginx 直通 3000，TLS 为 ZeroSSL 正式证书） |
+| 控制器 | identity `e5c9db4519`，唯一网络 `e5c9db4519e04fa5`（`Vnimy-Home`，192.168.200.0/24） |
+| 备份 | 卷就是目录：`tar czf planet-data.$(date +%F).tgz -C /root/docker/zerotier planet-data` |
+
+> 2026-11-10 该实例的卷内 identity 丢失，被 entrypoint 重新初始化成 `f8809c479a`，而网络 id 前缀仍是旧的 `e5c9db4519` → 客户端永远停在 `REQUESTING_CONFIGURATION`。恢复流程见 6.4。
+
+---
+
+## 9. 已知问题与限制
+
+| 类别 | 事项 | 现状 / 规避 |
+|---|---|---|
+| 环境 | 私有仓库 pull 偶发 `failed to fetch oauth token: … unexpected EOF` | 重新 `docker login` 即恢复；`install.sh` 已识别并给出人话提示 |
+| 环境 | WSL `/mnt/d` 是 DrvFs，`chmod 600 .env` 无效（仍 777） | `check_env_perms()` 显式告警；Linux 原生盘上不存在此问题 |
+| 设计 | 只改 `.env` 开关而 compose 判定无变化 → 重建被静默吞掉 | 重建路径必须 `up -d --no-deps --force-recreate zerotier`（脚本已内置） |
+| 设计 | ZTNet 面板的 Planet / 端口管理功能会与 entrypoint 抢同一卷的 `planet`、`local.conf` | **不要使用**；面板只用网络与成员管理 |
+| 设计 | 换 IP 后 planet 不会自动推送 | 必须人工重新分发；Android 有「每次启动重下 + sha256」开关可缓一口气 |
+| 事故 | 控制器 identity 被重建，客户端一直 `REQUESTING_CONFIGURATION` | 2026-11-10 线上实例发生并已恢复，见 6.4 |
+| 未验证 | 真域名 ACME 签发 | 仅用 `tls internal` 自签实测过反代分流；生产需域名解析 + 80/443 |
+| 未验证 | 全新空卷首次 `initdb` | 开发机数据卷已被旧口令初始化，无法原地验证；**请在新服务器首次部署时确认一次** |
+| 未验证 | `deploy.sh --upgrade` / `install.sh --upgrade` | 本机 registry 太慢未实跑；代码路径与常规 up 相同 |
+| 未验证 | macOS 客户端脚本 | 仅 `bash -n` + 在 Linux 上跑通同逻辑；`launchctl` 与 `/Library/Application Support` 未真机验证 |
+| 未验证 | Android 各阶段的真机走查 | 1.16.2 APK 已在真机安装并连上 `Vnimy-Home`；edge-to-edge、通知断开、扫码导入、检查更新尚未逐项拍照确认 |
+| 限制 | Android `minSdk` 21（原 19） | NDK r28c 的 platforms.json 强制；要保 19 需换 NDK r25 |
+| 限制 | ZT 1.16 起 controller 许可为商业源码可见 | 自用部署沿用官方口径；对外提供服务需自行确认 |
+| 限制 | 单节点无冗余 | 根节点故障期间新 peer 无法上线（已直连的 peer 不受影响） |
+| 限制 | planet 下载服务没有限速/防刷 | 生产建议放在 Nginx 后面加 `limit_req` |
+
+### 9.1 还没做的
+
+1. **planet 自动更新通道**（桌面端）：Android 已有「每次启动重下 + sha256」；桌面端可加 systemd timer / 计划任务做 sha 比对替换，并给 `e2e` 加「planet 变更后客户端自动跟上」的断言。
+2. 上面五条「未验证」项。
+3. 可选：planet 下载限速/防刷；`stack-status.sh` 加告警阈值。
+
+---
+
+## 10. 复算与接手核对
+
+### 10.1 复算命令（别只信文档）
+
+```bash
+bash zt-stack/planet-node/verify.sh                 # 43 条：planet 生成、controller、下载、幂等、换 IP 保身份
+bash zt-stack/scripts/e2e-verify.sh                 # 端到端：客户端换 planet → peers 出现 PLANET → 网络 OK
+bash zt-stack/patches/zerotierfix/test/run-planet-sync-test.sh D:/Projects/zerotier/ZerotierFix   # 28 条
+bash zt-stack/clients/test/test-download.sh         # 21 条（Linux/Windows 脚本的下载-校验-替换）
+bash zt-stack/release/build-release.sh && (cd zt-stack/release/dist && sha256sum -c SHA256SUMS)
+```
+
+注意：`verify.sh` 默认宿主端口 3920/13920，避免与运行中的栈抢 3000/9994。
+
+### 10.2 接手第一小时清单
+
+- [ ] `docker login ccr.ccs.tencentyun.com`，`docker pull ccr.ccs.tencentyun.com/vnimy/zerotier-planet:1.16.2`，核对 8.1 的 digest
+- [ ] `docker compose up -d`（或 `install.sh -i <IP>`），确认三服务 healthy、`/healthz` 200
+- [ ] 浏览器开面板，建一个测试网络；`curl` 下载 planet 并核对首字节 `0x01` 与 `X-File-SHA256`
+- [ ] 跑一次 `e2e-verify.sh`，确认 `peers` 里出现 `PLANET`
+- [ ] 备份 `planet-data`，记下 identity 前 10 位（网络 id 的前缀就是它）
+- [ ] 读 `docs/ARCHITECTURE.md` 第 8、9 节，再动任何与 planet/identity 相关的代码
+
+### 10.3 已核实事实（都是跑过、看过输出的，不是推断）
+
+| 项目 | 结论 |
+|---|---|
+| `planet-node/verify.sh` | 43 条全过（planet 生成、controller、下载鉴权、幂等、换 IP 保身份） |
+| mkworld 产物 | `type=planet`、`signature_valid=true`、root identity 与端点符合预期 |
+| 控制器建网 | `POST /controller/network/<控制器10位>______` 返回 16 位 hex 网络 ID |
+| 下载鉴权 | `/planet` 无 token 401，带 token 200（257 字节），`X-File-SHA256` 与文件一致 |
+| 三服务状态 | zerotier / ztnet / postgres 均 healthy |
+| 端到端 | 客户端换 planet 后 peers 出现 `PLANET ... DIRECT <IP>:<端口>`，`listnetworks` 返回 `OK` |
+| 换 IP | 保留 identity / authtoken / network id，planet 重新签名后客户端仍接受 |
+| Android 构建 | core 1.16.2 双 ABI 可构建，JVM 端 28 条断言通过，真机已连上 Vnimy-Home |
+| 桌面脚本 | Linux 21 条、Windows 25 条下载-校验-替换自测通过 |
+| 部署形态 | 纯 compose 与 `install.sh` 两条路都能起来；镜像可 push / 按 digest 回拉 |
+| 容器客户端 | 指定 `PLANET_URL` 即自动 join，授权后拿到 `192.168.200.x` |

@@ -289,3 +289,26 @@ planet（world）只是“根节点端点列表 + 时间戳 + 签名”，它和
 | `FORCE_REGENERATE=1` | 连 identity、authtoken、签名密钥一起换 | 私钥泄露、要彻底换身份（`--force-new-identity`） |
 
 两者同时为 1 时 `FORCE_REGENERATE` 优先（entrypoint 会在日志里明示）。
+
+---
+
+## 9. 编译与部署不变量（改镜像前必读）
+
+1. **controller 必须 `ZT_NONFREE=1`**：1.16.0 起 controller 移入 `nonfree/controller/`，只有该开关会把它编译进二进制并定义 `ZT_NONFREE_CONTROLLER`（`make-linux.mk:21-24`；官方 release 目标同样是 `ZT_OFFICIAL=1 ZT_NONFREE=1`）。许可因此变为商业源码可见——自用内部部署沿用官方口径，对外提供控制器服务需自行确认。
+   `ENABLE_CONTROLLER=0` 只是占位，没有运行时开关，入口只打印警告。
+2. **mkworld 必须 vendored**：`attic/world` 已从 dev 分支删除，仅存在于 `actions` 分支（2024-08-15 `d2c745c`）；1.16.2 的 `node/` 已无 `C25519.*`，生成器必须用它自己那套源码编译。来源与 blob 哈希见 `planet-node/mkworld/README.md`。
+3. **ZTNet 的三条硬约束**：`hostname: zerotier` 不能改（默认 `ZT_ADDR=http://zerotier:9993`）；必须挂同一个 `planet-data` 卷（`ZT_SECRET_FILE=/var/lib/zerotier-one/authtoken.secret`，模块加载时只读一次，换过 authtoken 要重启 ztnet）；`HOSTNAME=0.0.0.0`（否则 Next.js 只绑容器 IP，健康检查必挂）。
+
+---
+
+## 10. 术语
+
+| 词 | 含义 |
+|---|---|
+| planet / world | 根节点清单 + 签名，客户端靠它发现 ZeroTier 网络；本栈生成的 `planet` 文件即 world |
+| moon | 可选的额外中继节点定义（`moons.d/*.moon`），本栈同时生成并下载 |
+| controller | 网络控制器：建网、发地址、授权成员；本栈内建在每个行星节点里 |
+| network id | 16 位 hex，**前 10 位 = 控制器地址** |
+| ZTNet | 控制器 Web 面板（Next.js + Postgres），通过 `authtoken.secret` 调 controller API |
+| REGENERATE_WORLD | 只重建 planet/moons，保住 identity 与网络 |
+| FORCE_REGENERATE | 连 identity 一起换，所有 network id 失效 |
